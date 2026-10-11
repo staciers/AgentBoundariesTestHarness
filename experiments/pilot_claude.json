@@ -1,0 +1,15 @@
+{
+  "name": "pilot-claude",
+  "_comment": "First LLM pilot. ~12 scenarios x ~11 faults x 6 policies x 2 models x 2 seeds ~= 3k episodes. Start with --dry-run.",
+  "scenarios": "all",
+  "policies": ["P1", "P2", {"name": "P3", "threshold": 0.7}, "P4", "P5", {"name": "P6", "threshold": 0.7}],
+  "agents": [
+    {"type": "anthropic", "model": "claude-opus-5-5", "effort": "high"},
+    {"type": "anthropic", "model": "claude-haiku-5-5", "effort": "high"}
+  ],
+  "fault_conditions": "single",
+  "seeds": 2,
+  "workers": 8,
+  "keep_traces": true,
+  "max_turns": 30
+}

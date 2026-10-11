@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "abh"
+version = "0.1.0"
+description = "Autonomy Boundary Harness: fault-injection testbed for allocating control across runtimes, agents and humans"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+llm = ["anthropic"]
+plots = ["matplotlib"]
+
+[project.scripts]
+abh = "abh.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["abh*"]

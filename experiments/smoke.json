@@ -1,0 +1,8 @@
+{
+  "name": "smoke",
+  "scenarios": ["travel/base", "devops/base"],
+  "policies": ["P1", "P6"],
+  "agents": [{"type": "scripted", "profile": "naive"}],
+  "fault_conditions": ["none", "timeout_after_execution", "precondition_changed"],
+  "seeds": 2
+}
