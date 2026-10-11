@@ -1,0 +1,13 @@
+{
+  "name": "pilot-openai",
+  "scenarios": ["travel/*", "commerce/*", "devops/*", "scheduling/*"],
+  "policies": ["P1", "P5", "P6"],
+  "agents": [
+    {"type": "openai", "model": "gpt-5.4", "effort": "high"}
+  ],
+  "fault_conditions": "single",
+  "seeds": 3,
+  "max_turns": 30,
+  "workers": 1,
+  "keep_traces": true
+}

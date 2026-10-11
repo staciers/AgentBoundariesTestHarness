@@ -4,6 +4,11 @@ Faults are injected *between* the caller and the service, so the same fault can 
 observed by any control configuration. Each injected fault is recorded with its
 ground-truth effect (did the side effect commit?) so the evaluator can attribute
 who ultimately resolved it (RQ1: failure ownership).
+
+Compound faults: several specs may be active on the same invocation. They compose in
+the order a real request experiences them (see ``FaultInjector.invoke``). At most one
+*pre-execution* fault and at most one *response* fault may overlap on a call;
+``validate_compound`` rejects other combinations when the episode is set up.
 """
 from __future__ import annotations
 
@@ -13,7 +18,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 from .semantics import FailureClass
-from .tools import (InvocationContext, ServiceUnavailable, RateLimited, ToolSpec,
+from .tools import (InvocationContext, ServiceUnavailable, RateLimited, ToolError, ToolSpec,
                     ToolTimeout)
 from .world import World
 
@@ -50,6 +55,13 @@ _DEFAULT_TARGET = {
     FaultType.PRECONDITION_CHANGED: "@semantic",
     FaultType.TASK_INVALID_RESULT: "@semantic",
 }
+
+# Phases a request passes through. Pre-execution faults stop the request before the
+# service runs; execution modifiers change what the service commits; response faults
+# change what the caller receives.
+PRE_EXECUTION = {FaultType.TIMEOUT_BEFORE_EXECUTION, FaultType.TRANSIENT_FAILURE,
+                 FaultType.PERSISTENT_UNAVAILABLE, FaultType.RATE_LIMITED}
+RESPONSE = {FaultType.TIMEOUT_AFTER_EXECUTION, FaultType.MALFORMED_RESPONSE, FaultType.PARTIAL_RESPONSE}
 
 
 @dataclass
@@ -104,6 +116,30 @@ class InjectedFault:
                 "resolved_by": self.resolved_by, "notes": self.notes}
 
 
+def _overlap(a: "FaultSpec", b: "FaultSpec") -> bool:
+    return a.target == b.target and a.on_call < b.on_call + b.times and b.on_call < a.on_call + a.times
+
+
+def validate_compound(specs: List["FaultSpec"]) -> None:
+    """Reject fault combinations that cannot both apply to one request."""
+    for i, a in enumerate(specs):
+        for b in specs[i + 1:]:
+            if not _overlap(a, b):
+                continue
+            if a.type == b.type:
+                raise ValueError(f"{a.type.value} specified twice for the same call of {a.target}")
+            for phase, name in ((PRE_EXECUTION, "pre-execution"), (RESPONSE, "response")):
+                if a.type in phase and b.type in phase:
+                    raise ValueError(f"{a.type.value} and {b.type.value} are both {name} faults on "
+                                     f"{a.target}; at most one can apply to a call")
+            pre = a if a.type in PRE_EXECUTION else b if b.type in PRE_EXECUTION else None
+            if pre is not None:
+                other = b if pre is a else a
+                if other.type != FaultType.PRECONDITION_CHANGED:
+                    raise ValueError(f"{pre.type.value} prevents execution, so {other.type.value} on the "
+                                     f"same call of {a.target} would never apply")
+
+
 class MalformedPayload(dict):
     """Marker for a garbled response body."""
 
@@ -118,11 +154,8 @@ class FaultInjector:
         self._counts: Dict[str, int] = {}
         self.injected: List[InjectedFault] = []
 
-    def _active(self, tool: str, n: int) -> Optional[FaultSpec]:
-        for s in self.specs:
-            if s.target == tool and s.on_call <= n < s.on_call + s.times:
-                return s
-        return None
+    def _active(self, tool: str, n: int) -> List[FaultSpec]:
+        return [s for s in self.specs if s.target == tool and s.on_call <= n < s.on_call + s.times]
 
     def _record(self, spec: FaultSpec, tool: str, ctx: InvocationContext, world: World) -> InjectedFault:
         f = InjectedFault(f"fault{len(self.injected) + 1}", spec.type, tool, ctx.call_id,
@@ -134,72 +167,91 @@ class FaultInjector:
         return [f for f in self.injected if f.call_id == call_id]
 
     def invoke(self, tool: ToolSpec, args: dict, world: World, ctx: InvocationContext) -> dict:
+        """Run one service invocation with every fault active on it, composed in phase order:
+
+        1. world-changing hooks (precondition changed, task-invalid ``before``)
+        2. a pre-execution fault, if any, raises and nothing executes
+        3. execution with modifiers (partial mutation, duplicate execution); writes are
+           captured so delayed visibility can hide them, even if execution raised
+        4. a response fault, if any: a timeout masks whatever happened (success or error);
+           otherwise a malformed/partial body or a task-invalid mutation replaces the response.
+           Delayed visibility counts from this moment (when the caller gets its answer).
+        """
         n = self._counts[tool.name] = self._counts.get(tool.name, 0) + 1
-        spec = self._active(tool.name, n)
-        p = dict(self.defaults)
-        if spec:
-            p.update(spec.params)
+        specs = self._active(tool.name, n)
         world.current_call_id = ctx.call_id
         world.clock.advance(tool.latency_ms)
-        if spec is None:
+        if not specs:
             return tool.execute(world, args, ctx)
 
-        ft = spec.type
-        rec = self._record(spec, tool.name, ctx, world)
+        p = dict(self.defaults)
+        for spec in specs:
+            p.update(spec.params)
+        recs = {spec.type: self._record(spec, tool.name, ctx, world) for spec in specs}
+        active = set(recs)
         n_effects = len(world.effects)
 
-        def committed() -> bool:
-            return len(world.effects) > n_effects
+        def settle() -> None:
+            done = len(world.effects) > n_effects
+            for r in recs.values():
+                r.committed = done
 
-        if ft == FaultType.TIMEOUT_BEFORE_EXECUTION:
+        # 1. world-changing hooks
+        for ft in (FaultType.PRECONDITION_CHANGED, FaultType.TASK_INVALID_RESULT):
+            sdef = self.semantic_defs.get(ft)
+            if ft in active and sdef and sdef.before:
+                sdef.before(world)
+                recs[ft].notes.append(sdef.description)
+
+        # 2. pre-execution failure
+        if FaultType.TIMEOUT_BEFORE_EXECUTION in active:
             world.clock.advance(p["timeout_ms"])
-            rec.committed = False
+            settle()
             raise ToolTimeout(f"Request to {tool.name} timed out after {p['timeout_ms']}ms")
-        if ft == FaultType.TRANSIENT_FAILURE or ft == FaultType.PERSISTENT_UNAVAILABLE:
-            rec.committed = False
+        if active & {FaultType.TRANSIENT_FAILURE, FaultType.PERSISTENT_UNAVAILABLE}:
+            settle()
             raise ServiceUnavailable(f"503 Service Unavailable: {tool.name}")
-        if ft == FaultType.RATE_LIMITED:
-            rec.committed = False
+        if FaultType.RATE_LIMITED in active:
+            settle()
             raise RateLimited(f"429 Too Many Requests: retry after {p['retry_after_ms']}ms",
                               retry_after_ms=p["retry_after_ms"])
-        if ft == FaultType.PARTIAL_MUTATION:
-            ctx.partial = True
-            try:
-                return tool.execute(world, args, ctx)
-            finally:
-                ctx.partial = False
-                rec.committed = committed()
 
-        sdef = self.semantic_defs.get(ft)
-        if ft == FaultType.PRECONDITION_CHANGED and sdef and sdef.before:
-            sdef.before(world)
-            rec.notes.append(sdef.description)
-        if ft == FaultType.TASK_INVALID_RESULT and sdef and sdef.before:
-            sdef.before(world)
-
+        # 3. execution with modifiers
+        resp: Optional[dict] = None
+        error: Optional[ToolError] = None
+        ctx.partial = FaultType.PARTIAL_MUTATION in active
         world.begin_capture()
         try:
             resp = tool.execute(world, args, ctx)
-            if ft == FaultType.DUPLICATE_EXECUTION:
+            if FaultType.DUPLICATE_EXECUTION in active:
                 # e.g. a load balancer replays the request; server dedupes only with a key
                 resp = tool.execute(world, args, ctx)
+        except ToolError as e:
+            error = e
         finally:
+            ctx.partial = False
             writes = world.end_capture()
-            rec.committed = committed()
+            settle()
 
-        if ft == FaultType.DELAYED_VISIBILITY:
-            world.delay_visibility(writes, int(p["delay_ms"]))
-        if ft == FaultType.TIMEOUT_AFTER_EXECUTION:
+        # 4. response faults. Visibility lag is measured from when the caller gets its answer
+        # (response or timeout), so a lag shorter than the timeout still matters.
+        if FaultType.TIMEOUT_AFTER_EXECUTION in active:
             world.clock.advance(p["timeout_ms"])
+        if FaultType.DELAYED_VISIBILITY in active:
+            world.delay_visibility(writes, int(p["delay_ms"]))
+        if FaultType.TIMEOUT_AFTER_EXECUTION in active:
             raise ToolTimeout(f"Request to {tool.name} timed out after {p['timeout_ms']}ms")
-        if ft == FaultType.MALFORMED_RESPONSE:
+        if error is not None:
+            raise error
+        if FaultType.MALFORMED_RESPONSE in active:
             return MalformedPayload({"_raw": "<html><body>502 Bad Gateway</body></html>"
                                              "\x00{\"stat"})
-        if ft == FaultType.PARTIAL_RESPONSE:
+        if FaultType.PARTIAL_RESPONSE in active:
             # Body truncated: the fields a caller needs to know what happened are lost.
             trimmed = {k: v for k, v in resp.items() if k not in tool.response_fields}
             return trimmed or {"status": "accepted"}
-        if ft == FaultType.TASK_INVALID_RESULT and sdef and sdef.mutate_response:
-            rec.notes.append(sdef.description)
+        sdef = self.semantic_defs.get(FaultType.TASK_INVALID_RESULT)
+        if FaultType.TASK_INVALID_RESULT in active and sdef and sdef.mutate_response:
+            recs[FaultType.TASK_INVALID_RESULT].notes.append(sdef.description)
             return sdef.mutate_response(copy.deepcopy(resp))
         return resp

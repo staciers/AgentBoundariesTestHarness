@@ -97,7 +97,9 @@ def _list(w: World, a: dict, ctx) -> dict:
 
 
 def _compensate(w: World, a: dict, key: str) -> None:
-    for ev in w.scan("events", visible=False, where=lambda e: e.get("client_ref") == key and e["status"] != "cancelled"):
+    # A meeting is incomplete if a requested room was not booked; complete ones are left alone.
+    for ev in w.scan("events", visible=False, where=lambda e: e.get("client_ref") == key and e["status"] != "cancelled"
+                     and a.get("room") and e.get("room") != a.get("room")):
         _cancel_rec(w, ev)
 
 

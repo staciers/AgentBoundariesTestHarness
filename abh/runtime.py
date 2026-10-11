@@ -191,6 +191,12 @@ class ReliabilityRuntime:
                 if found is not None:
                     return self._success(tool, args, found, out)
                 if key or sem.idempotent:
+                    if (sem.multipart and not sem.idempotent and self.cfg.compensate_partial
+                            and tool.compensate and sem.compensable):
+                        # A timeout can hide a partial commit that the key store never
+                        # recorded; undo any incomplete attempt before replaying.
+                        tool.compensate(self.world, args, key or call_id)
+                        out.runtime_actions.append("compensate_unknown_partial")
                     out.runtime_actions.append("safe_retry_with_key" if key else "retry_idempotent")
                     continue
                 out.runtime_actions.append("cannot_disambiguate")

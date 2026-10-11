@@ -31,7 +31,16 @@ def _agent(s: str):
         if len(parts) > 2:
             d["effort"] = parts[2]
         return d
-    raise SystemExit(f"unknown agent {s!r} (use scripted[:profile] or anthropic[:model[:effort]])")
+    if s.startswith("openai"):
+        parts = s.split(":")
+        d = {"type": "openai"}
+        if len(parts) > 1:
+            d["model"] = parts[1]
+        if len(parts) > 2:
+            d["effort"] = parts[2]
+        return d
+    raise SystemExit(f"unknown agent {s!r} (use scripted[:profile], anthropic[:model[:effort]], "
+                     "or openai[:model[:effort]])")
 
 
 def main(argv=None) -> int:
@@ -88,7 +97,8 @@ def main(argv=None) -> int:
                 print(json.dumps(ev, default=str))
         keys = ["scenario", "policy", "runtime", "agent", "faults", "outcome", "invariants", "authority_violations",
                 "duplicate_effects", "interventions", "interventions_necessary", "needs_total", "needs_met",
-                "failures_exposed_to_agent", "model_calls", "agent_tool_calls", "service_invocations",
+                "failures_exposed_to_agent", "model_calls", "input_tokens", "output_tokens",
+                "cache_read_tokens", "model_cost_usd", "model_latency_ms", "agent_tool_calls", "service_invocations",
                 "sim_duration_ms", "faults_injected", "final_message"]
         print(json.dumps({k: res[k] for k in keys}, indent=2, default=str))
         return 0

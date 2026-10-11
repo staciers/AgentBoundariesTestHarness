@@ -90,7 +90,9 @@ class ToolSpec:
     # reconcile(world, args, idempotency_key) -> response if the action is
     # observable as executed, else None. Uses visible state only.
     reconcile: Optional[Callable[[World, dict, str], Optional[dict]]] = None
-    # compensate(world, args, idempotency_key) -> undo partial/complete effects.
+    # compensate(world, args, idempotency_key) -> undo the effects of an *incomplete*
+    # attempt made with this key. Must be a no-op if that attempt completed, because the
+    # runtime may call it when it cannot tell whether a request finished.
     compensate: Optional[Callable[[World, dict, str], None]] = None
     tags: List[str] = field(default_factory=list)
 

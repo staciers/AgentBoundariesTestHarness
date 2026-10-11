@@ -88,7 +88,9 @@ def _cancel_order(w: World, a: dict, ctx) -> dict:
 
 
 def _compensate(w: World, a: dict, key: str) -> None:
-    for o in w.scan("orders", visible=False, where=lambda o: o.get("client_ref") == key and o["status"] != "cancelled"):
+    # Only incomplete orders; a fully placed order is left alone.
+    for o in w.scan("orders", visible=False,
+                    where=lambda o: o.get("client_ref") == key and o["status"] == "partially_placed"):
         _cancel_order_rec(w, o)
 
 

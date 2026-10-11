@@ -33,6 +33,48 @@ policies on identical agents, faults and seeds.
 | Human needs | `Scenario.human_needs` (authority, ambiguity) | intervention recall (H3, H7) |
 | Fault committed | `InjectedFault.committed` | RQ1 analysis |
 
+## Compound faults
+
+A fault condition can be a list of specs. In an experiment spec, write
+`"fault_conditions": [["timeout_after_execution", "delayed_visibility"]]`; on the command
+line, repeat `--fault`. Specs on different calls (different tools, or non-overlapping
+`on_call` windows) are independent. Specs that hit the **same** invocation compose in the
+order a real request experiences them (`FaultInjector.invoke`):
+
+| Phase | Faults | Effect |
+|---|---|---|
+| 1. World changes | `precondition_changed`, `task_invalid_result` (its `before` hook) | the world shifts before the request arrives |
+| 2. Pre-execution | `timeout_before_execution`, `transient_failure`, `persistent_unavailable`, `rate_limited` | the request fails and nothing executes |
+| 3. Execution modifiers | `partial_mutation`, `duplicate_execution`, `delayed_visibility` | change what the service commits, and when reads can see it |
+| 4. Response | `timeout_after_execution`, `malformed_response`, `partial_response`, `task_invalid_result` (its response mutation) | change what the caller receives |
+
+Rules:
+
+- **At most one pre-execution and one response fault per call.** A pre-execution fault also
+  can't be combined with execution or response faults on that call, since nothing would
+  execute; only `precondition_changed` may accompany it. `validate_compound` rejects other
+  combinations when an episode is set up, and when an experiment spec is expanded, before
+  anything is spent.
+- **A timeout masks everything.** With `timeout_after_execution`, the caller sees a timeout
+  whatever happened: success, a partial commit, or a business rejection.
+- **Visibility lag starts when the caller gets its answer**, i.e. after the timeout when there
+  is one. A lag shorter than the timeout therefore still hides the write from the caller's
+  next read.
+- Every fault in the compound gets its own `InjectedFault` record, all sharing the call's
+  ground-truth `committed` flag.
+
+Compounds worth studying, because each defeats a strategy that works on the single fault:
+
+| Compound | What it defeats |
+|---|---|
+| `timeout_after_execution` + `delayed_visibility` | check-then-retry: the agent's lookup finds nothing, so a retry looks safe and duplicates the effect. Only an idempotency key prevents it. |
+| `partial_mutation` + `timeout_after_execution` | the partial failure is hidden behind a timeout. Retrying with a key duplicates the committed part, because the service never stored the key. The semantic runtime compensates the incomplete attempt before replaying (`compensate_unknown_partial`). |
+| `duplicate_execution` + `delayed_visibility` | the agent sees no record, so it can't tell the effect happened twice |
+
+Because of the second case, a tool's `compensate` hook must undo only an *incomplete* attempt
+and do nothing if the attempt completed. The runtime may call it when it can't tell whether a
+request finished, and a completed but not-yet-visible operation must survive that.
+
 ## Mapping to research questions and hypotheses
 
 | | Experiment | Primary metrics |
@@ -78,11 +120,9 @@ a service catalogue and multi-step migrations, and keep the same control plane.
 
 ## Known limitations / next steps
 
-- Each fault injection hits one tool call. Compound faults on the *same* call (for example a
-  timeout after execution *plus* delayed visibility) need `FaultInjector._active` to return
-  several specs.
-- Only Claude has an adapter. Adding another model family means implementing
-  `Agent.start/act` (see `agents/anthropic_agent.py`).
+- Anthropic and OpenAI have adapters. Adding another model family means implementing
+  `Agent.start/act`; see `agents/anthropic_agent.py`, `agents/openai_agent.py`, and
+  [OPENAI_MODELS.md](OPENAI_MODELS.md) for the provider-boundary design.
 - The simulated human answers from ground truth with fixed noise. Calibrate the latency and
   error parameters against a small interactive pilot (`human.mode = "interactive"`) before
   making claims about human cost.

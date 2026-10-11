@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from .agents.base import Agent, TaskBrief, Usage, make_agent
 from .controlplane import ControlPlane
 from .domains.base import Scenario, make_scenario
-from .faults import FaultInjector, FaultSpec
+from .faults import FaultInjector, FaultSpec, validate_compound
 from .human import HumanConfig, make_human
 from .policies import ControlPolicy, make_policy
 from .runtime import ReliabilityRuntime, RuntimeConfig
@@ -54,6 +54,7 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True) -> Dict[str, Any]:
         if tool is None:
             raise ValueError(f"{scenario.id} does not support fault {spec.type.value}")
         specs.append(FaultSpec(spec.type, tool, spec.on_call, spec.times, spec.params))
+    validate_compound(specs)
     injector = FaultInjector(specs, scenario.semantic_faults)
     runtime = ReliabilityRuntime(rcfg, world, injector, trace)
     human = make_human(hcfg, scenario.oracle, random.Random(rng.random()))

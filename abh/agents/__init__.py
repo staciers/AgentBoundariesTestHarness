@@ -1,1 +1,1 @@
-"""Agent adapters (scripted baseline, Claude)."""
+"""Agent adapters (scripted baseline, Anthropic, OpenAI)."""

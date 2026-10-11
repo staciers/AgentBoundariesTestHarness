@@ -130,6 +130,8 @@ def _cancel_rec(w: World, r: dict) -> None:
 
 
 def _compensate_trip(w: World, a: dict, key: str) -> None:
+    if w.scan("trips", visible=False, where=lambda t: t.get("client_ref") == key):
+        return  # the trip completed; nothing partial to undo
     for r in w.scan("reservations", visible=False,
                     where=lambda r: r.get("client_ref") == key and r["status"] != "cancelled"):
         _cancel_rec(w, r)

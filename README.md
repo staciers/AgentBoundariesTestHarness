@@ -35,6 +35,13 @@ python3 -m abh list
 python3 -m abh episode travel/base --policy P1 --agent scripted:naive --fault timeout_after_execution
 ```
 
+To inject a compound fault, repeat `--fault`. Faults that hit the same call compose; see
+[Compound faults](docs/ARCHITECTURE.md#compound-faults).
+
+```bash
+python3 -m abh episode devops/base --policy P1 --agent scripted:strong --fault timeout_after_execution --fault delayed_visibility
+```
+
 ```bash
 python3 -m abh run experiments/pilot_scripted.json
 ```
@@ -48,7 +55,7 @@ python3 -m unittest discover -s tests -v
 `risk_coverage`. If matplotlib is installed, it also writes `risk_coverage.png`. Runs can be
 resumed with `--resume runs/<dir>`, and `python3 -m abh report runs/<dir>` rebuilds the report.
 
-### LLM agents (Claude)
+### LLM agents (Claude and OpenAI)
 
 ```bash
 python3.11 -m pip install anthropic
@@ -67,6 +74,19 @@ an `ant auth login` profile. Always run with `--dry-run` first to see how many e
 expands to, because every LLM episode costs money. Each episode records measured tokens and
 cost, and `keep_traces: true` saves the full transcripts.
 
+For OpenAI models, install the adapter dependency and set `OPENAI_API_KEY`:
+
+```bash
+python3.11 -m pip install '.[openai]'
+python3.11 -m abh episode devops/base --policy P6 --agent openai:gpt-5.4:high --fault timeout_after_execution -v
+python3.11 -m abh run experiments/pilot_openai.json --dry-run
+```
+
+Known OpenAI models have dated pricing defaults for cost reporting. You can override
+`input_price`, `output_price`, and `cache_read_price` (USD per million tokens) in the agent spec;
+retain those assumptions with the run. Unknown models report measured usage but zero cost until
+prices are supplied.
+
 ## Concepts
 
 | Concept | Where | Notes |
@@ -74,14 +94,14 @@ cost, and `keep_traces: true` saves the full transcripts.
 | Action semantics | `abh/semantics.py` | side_effect, idempotent, reversible, compensable, consequence, authority_requirement, idempotency-key support, multipart |
 | Execution states | `abh/semantics.py` | NOT_EXECUTED, EXECUTED, EXECUTION_UNKNOWN, PARTIALLY_EXECUTED, VERIFIED, SEMANTIC_FAILURE |
 | World | `abh/world.py` | versioned records with truth and visible views (delayed visibility), effects ledger, simulated clock |
-| Faults (12) | `abh/faults.py` | the full prospectus §6 taxonomy; each injection records whether it committed and who resolved it (link: https://docs.google.com/document/d/1Uwq2EzlwCvjG2rwmyl9x1YVzFJiwK02g9VYpPjhgEBE/edit?tab=t.h35zl5z98uqb)|
+| Faults (12) | `abh/faults.py` | the full prospectus §6 taxonomy; each injection records whether it committed and who resolved it; faults can be combined (compound faults) (link: https://docs.google.com/document/d/1Uwq2EzlwCvjG2rwmyl9x1YVzFJiwK02g9VYpPjhgEBE/edit?tab=t.h35zl5z98uqb)|
 | Runtime | `abh/runtime.py` | `none` (raw errors), `naive_retry` (conventional infra retry), `semantic` (keys, reconcile, verify, compensate, classify) |
 | Authority | `abh/authority.py` | principals, delegation, rules; kept independent of uncertainty |
 | Human | `abh/human.py` | simulated (log-normal latency, error rate, vigilance decrement, attention budget) or interactive |
 | Policies | `abh/policies.py` | P1–P6 and ORACLE; the runtime mode can be overridden per experiment |
 | Control plane | `abh/controlplane.py` | authority → gate → runtime → route; does the ground-truth bookkeeping |
 | Scenarios | `abh/domains/` | travel, commerce, devops, scheduling × {base, ambiguous, authority} |
-| Agents | `abh/agents/` | `scripted` (reference plan with competence knobs) and `anthropic` (manual tool loop) |
+| Agents | `abh/agents/` | `scripted` baseline plus `anthropic` and `openai` manual tool loops |
 
 ### Policies
 
@@ -120,4 +140,5 @@ Any policy also accepts `"runtime"`, and `"ask_human": true` exposes the ask too
    would confound the model-capability factor. Refusals end the episode as `agent_error`.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the harness maps to the RQs and
-hypotheses, the metric definitions, and the extension points for Paper 2.
+hypotheses, and [docs/OPENAI_MODELS.md](docs/OPENAI_MODELS.md) for the OpenAI integration and
+class, component, sequence, and deployment diagrams.

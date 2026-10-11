@@ -15,7 +15,10 @@ Spec (JSON)::
     }
 
 ``fault_conditions`` may also be a list whose items are ``"none"``, a fault type
-name, a fault spec dict, or a list of specs (compound faults).
+name, a fault spec dict, or a list of specs. A list is a *compound* condition: all its
+faults are injected in the same episode, and those that target the same call compose
+(e.g. ``["timeout_after_execution", "delayed_visibility"]``). Invalid compounds are
+rejected while the spec is expanded, before any episode runs.
 """
 from __future__ import annotations
 
@@ -32,7 +35,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from .agents.base import make_agent
 from .domains.base import list_scenarios, make_scenario
 from .episode import EpisodeConfig, fault_label, run_episode
-from .faults import FaultSpec, FaultType
+from .faults import FaultSpec, FaultType, validate_compound
 from .metrics import load_episodes, write_report
 from .policies import make_policy
 
@@ -69,8 +72,14 @@ def expand(spec: Dict[str, Any]) -> Iterator[EpisodeConfig]:
     for sid in _scenarios(spec.get("scenarios")):
         sc = make_scenario(sid)
         for cond in _conditions(spec.get("fault_conditions", "single")):
-            if any(not sc.supports(f.type) and sc.resolve_target(f.target, f.type) is None for f in cond):
-                continue
+            resolved = [FaultSpec(f.type, sc.resolve_target(f.target, f.type), f.on_call, f.times, f.params)
+                        for f in cond]
+            if any(f.target is None for f in resolved):
+                continue  # scenario lacks a tool for this fault
+            try:
+                validate_compound(resolved)
+            except ValueError as e:  # a spec error, not a per-episode failure: stop before spending
+                raise ValueError(f"fault condition {fault_label(cond)} on {sid}: {e}") from None
             for pol in spec.get("policies", ["P1"]):
                 for rt in spec.get("runtime_overrides", [None]):
                     for ag in spec.get("agents", ["scripted"]):

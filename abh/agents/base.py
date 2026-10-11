@@ -72,4 +72,7 @@ def make_agent(spec) -> Agent:
     if kind == "anthropic":
         from .anthropic_agent import AnthropicAgent
         return AnthropicAgent(**spec)
+    if kind == "openai":
+        from .openai_agent import OpenAIAgent
+        return OpenAIAgent(**spec)
     raise ValueError(f"unknown agent type {kind!r}")

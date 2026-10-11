@@ -10,7 +10,9 @@ requires-python = ">=3.9"
 dependencies = []
 
 [project.optional-dependencies]
-llm = ["anthropic"]
+llm = ["anthropic", "openai"]
+anthropic = ["anthropic"]
+openai = ["openai"]
 plots = ["matplotlib"]
 
 [project.scripts]

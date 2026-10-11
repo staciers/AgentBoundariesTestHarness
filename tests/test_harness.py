@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from abh.controlplane import ToolCall
+from abh.agents.openai_agent import OpenAIAgent, _conf as openai_conf, _openai_tool
 from abh.domains.base import list_scenarios, make_scenario
 from abh.episode import EpisodeConfig, run_episode
 from abh.experiment import expand, run_experiment
@@ -52,6 +53,27 @@ class TestWorld(unittest.TestCase):
         self.assertEqual(w.get("t", "k", visible=False), {"v": 1})
         w.clock.advance(5000)
         self.assertEqual(w.get("t", "k"), {"v": 1})
+
+
+class TestOpenAIAdapter(unittest.TestCase):
+    def test_translates_tool_schema_to_function(self):
+        schema = {"name": "book", "description": "Book it", "input_schema": {
+            "type": "object", "properties": {"confidence": {"type": "number"}},
+            "required": ["confidence"], "additionalProperties": False,
+        }}
+        tool = _openai_tool(schema)
+        self.assertEqual(tool["type"], "function")
+        self.assertEqual(tool["parameters"], schema["input_schema"])
+        self.assertNotIn("strict", tool)
+
+    def test_extracts_confidence(self):
+        self.assertEqual(openai_conf({"confidence": 0.75}), 0.75)
+        self.assertIsNone(openai_conf({"confidence": "unknown"}))
+
+    def test_known_model_uses_pricing_defaults(self):
+        agent = OpenAIAgent(model="gpt-5.4")
+        self.assertEqual((agent.input_price, agent.cache_read_price, agent.output_price),
+                         (2.50, 0.25, 15.00))
 
 
 class TestFaultsAndRuntime(unittest.TestCase):
@@ -151,6 +173,85 @@ class TestPolicies(unittest.TestCase):
     def test_ask_human_only_when_exposed(self):
         r = ep("travel/base", "P1", "strong")
         self.assertFalse(any(e["kind"] == "clarification" for e in r["escalations"]))
+
+
+class TestCompoundFaults(unittest.TestCase):
+    INCIDENT = dict(title="x", severity="SEV2", service="checkout-api", summary="s")
+    NO_KEYS = {"type": "scripted", "profile": "strong", "use_idempotency_keys": 0.0}
+
+    def tool(self, sc, name):
+        return next(t for t in sc.tools if t.name == name)
+
+    def run_cfg(self, scenario, policy, agent, faults):
+        fs = [FaultSpec.parse(f) for f in faults]
+        return run_episode(EpisodeConfig(scenario, policy, agent, [f.to_dict() for f in fs],
+                                         "+".join(f.type.value for f in fs)))
+
+    def test_both_faults_recorded_on_one_call(self):
+        sc, w, rt, inj = runtime_for("devops/base", "none", ["timeout_after_execution", "delayed_visibility"])
+        out = rt.execute(self.tool(sc, "create_incident"), self.INCIDENT, "c1")
+        self.assertEqual(out.state, ExecutionState.EXECUTION_UNKNOWN)
+        self.assertEqual(sorted(f.type.value for f in inj.injected),
+                         ["delayed_visibility", "timeout_after_execution"])
+        self.assertTrue(all(f.committed for f in inj.injected))
+        self.assertEqual(w.scan("incidents"), [])                    # committed but not yet visible
+        self.assertEqual(len(w.scan("incidents", visible=False)), 1)
+
+    def test_check_then_retry_defeated_without_keys(self):
+        # The agent checks state after the timeout, sees nothing (not visible yet), and retries.
+        r = self.run_cfg("devops/base", "P1", self.NO_KEYS, ["timeout_after_execution", "delayed_visibility"])
+        self.assertEqual(r["outcome"], "harm")
+        self.assertFalse(r["invariants"]["no_duplicate_pages"])
+
+    def test_semantic_runtime_prevents_duplicate(self):
+        r = self.run_cfg("devops/base", "P6", self.NO_KEYS, ["timeout_after_execution", "delayed_visibility"])
+        self.assertTrue(r["success"])
+        self.assertEqual(r["duplicate_effects"], 0)
+        self.assertEqual(r["failures_exposed_to_agent"], 0)
+
+    def test_timeout_masks_partial_commit(self):
+        sc, w, rt, _ = runtime_for("travel/base", "none", ["partial_mutation", "timeout_after_execution"])
+        out = rt.execute(self.tool(sc, "book_trip"), TRIP, "c1")
+        self.assertEqual(out.error_kind, "timeout")                    # the partial failure is hidden
+        kinds = [r["kind"] for r in w.scan("reservations", visible=False)]
+        self.assertEqual(kinds, ["flight"])
+
+    def test_semantic_runtime_compensates_hidden_partial(self):
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", ["partial_mutation", "timeout_after_execution"])
+        out = rt.execute(self.tool(sc, "book_trip"), TRIP, "c1")
+        self.assertTrue(out.resolved)
+        self.assertIn("compensate_unknown_partial", out.runtime_actions)
+        self.assertEqual(w.duplicate_effects(), 0)
+        active = w.scan("reservations", visible=False, where=lambda r: r["status"] != "cancelled")
+        self.assertEqual(sorted(r["kind"] for r in active), ["flight", "hotel"])
+
+    def test_compensation_spares_completed_but_invisible_work(self):
+        # Full commit hidden by delayed visibility + timeout: compensation must not cancel it.
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", [
+            "timeout_after_execution", {"type": "delayed_visibility", "params": {"delay_ms": 600000}}])
+        out = rt.execute(self.tool(sc, "book_trip"), TRIP, "c1")
+        self.assertTrue(out.resolved)
+        self.assertEqual(w.compensated_effects(), 0)
+        self.assertEqual(w.duplicate_effects(), 0)
+
+    def test_invalid_compounds_rejected(self):
+        for bad in (["timeout_after_execution", "malformed_response"],
+                    ["transient_failure", "rate_limited"],
+                    ["timeout_before_execution", "duplicate_execution"],
+                    ["timeout_after_execution", "timeout_after_execution"]):
+            with self.assertRaises(ValueError, msg=bad):
+                self.run_cfg("travel/base", "P1", "scripted", bad)
+
+    def test_non_overlapping_same_type_allowed(self):
+        r = self.run_cfg("devops/base", "P6", "scripted", [
+            "transient_failure", {"type": "transient_failure", "target": "@write", "on_call": 3}])
+        self.assertEqual(len(r["faults_injected"]), 1)  # the second never triggers: the call succeeds on retry 2
+
+    def test_experiment_expansion_rejects_bad_compound(self):
+        spec = {"scenarios": ["travel/base"], "policies": ["P1"], "seeds": 1,
+                "fault_conditions": [["timeout_after_execution", "partial_response"]]}
+        with self.assertRaises(ValueError):
+            list(expand(spec))
 
 
 class TestDeterminismAndRunner(unittest.TestCase):

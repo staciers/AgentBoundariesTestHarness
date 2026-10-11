@@ -83,7 +83,7 @@ def _deploy(w, a, ctx):
 
 def _restore(w: World, a: dict, key: str) -> None:
     ro = w.get("rollouts", key, visible=False)
-    if ro:
+    if ro and set(_svc(w, ro["service"])["regions"].values()) != {ro["target"]}:  # skip if fully rolled out
         s = _svc(w, ro["service"])
         s["regions"] = dict(ro["previous"])
         w.put("services", s["name"], s)
