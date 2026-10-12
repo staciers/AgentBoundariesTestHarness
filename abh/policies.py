@@ -46,6 +46,11 @@ class ControlPolicy:
         # provides keys" from "the agent uses keys the platform offers" (H1 ablation).
         # The semantic runtime attaches its own keys either way.
         self.expose_keys = bool(params.get("expose_keys", True))
+        # Wording of the idempotency_key description (see tools.KEY_DESCRIPTIONS); ablation only.
+        self.key_description = str(params.get("key_description", "at_most_once"))
+        from .tools import KEY_DESCRIPTIONS
+        if self.key_description not in KEY_DESCRIPTIONS:
+            raise ValueError(f"key_description must be one of {sorted(KEY_DESCRIPTIONS)}")
 
     @property
     def label(self) -> str:

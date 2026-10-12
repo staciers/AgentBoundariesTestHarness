@@ -1,5 +1,7 @@
 """Factorial experiment runner with resumable JSONL output.
 
+Specs may also split into ``"blocks"`` (sub-grids that override top-level keys); see ``expand``.
+
 Spec (JSON)::
 
     {
@@ -9,7 +11,7 @@ Spec (JSON)::
       "agents": [{"type": "scripted", "profile": "careful"}],
       "fault_conditions": "single",                      # none + each fault type alone
       "runtime_overrides": [null],                       # e.g. [null, "semantic"] crosses runtime x policy
-      "seeds": 5,                                        # int -> range(n), or explicit list
+      "seeds": 5,                      # int -> range(n), explicit list, or {"start": 100, "count": 30}
       "human": {"latency_median_s": 90},
       "max_turns": 30, "workers": 4, "keep_traces": false
     }
@@ -67,7 +69,26 @@ def _conditions(sel) -> List[List[FaultSpec]]:
 
 
 def expand(spec: Dict[str, Any]) -> Iterator[EpisodeConfig]:
+    """Expand a spec into episode configs.
+
+    A spec may contain ``"blocks"``: a list of partial specs, each overriding the top-level
+    keys for its own sub-grid. This lets one run hold, say, a main design plus an ablation
+    that only applies to some conditions. Episodes produced by more than one block are
+    yielded once.
+    """
+    if "blocks" in spec:
+        base = {k: v for k, v in spec.items() if k != "blocks"}
+        seen = set()
+        for block in spec["blocks"]:
+            for cfg in expand({**base, **{k: v for k, v in block.items() if not k.startswith("_")}}):
+                key = episode_key(cfg)
+                if key not in seen:
+                    seen.add(key)
+                    yield cfg
+        return
     seeds = spec.get("seeds", 3)
+    if isinstance(seeds, dict):  # {"start": 100, "count": 30}
+        seeds = list(range(int(seeds.get("start", 0)), int(seeds.get("start", 0)) + int(seeds["count"])))
     seeds = list(range(seeds)) if isinstance(seeds, int) else list(seeds)
     for sid in _scenarios(spec.get("scenarios")):
         sc = make_scenario(sid)

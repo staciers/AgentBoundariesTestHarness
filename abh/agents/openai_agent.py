@@ -13,8 +13,11 @@ from ..controlplane import ToolCall, ToolResult
 from .base import Agent, AgentTurn, TaskBrief, Usage
 
 # USD per million tokens (input, output, cached input). Source: OpenAI model
-# pricing as of 2026-10. Explicit constructor values override these defaults.
+# pricing page, checked 2026-10-12 (standard tier, short context). Explicit constructor values override these defaults.
 PRICES = {
+    "gpt-6-astra": (10.00, 50.00, 1.00),
+    "gpt-6.1-sol": (2.00, 10.00, 0.10),
+    "gpt-6-luna": (0.10, 0.50, 0.01),
     "gpt-5.4": (2.50, 15.00, 0.25),
     "gpt-5.4-2026-03-05": (2.50, 15.00, 0.25),
 }

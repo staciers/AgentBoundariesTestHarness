@@ -165,7 +165,9 @@ TERMS: List[Term] = [
     _T("policy-params", "policies", "Any policy also accepts `runtime` (override the runtime mode), `ask_human` "
                                     "(expose the ask tool) and `expose_keys` (whether tool schemas offer agents an "
                                     "`idempotency_key`; default true; the semantic runtime attaches its own keys "
-                                    "either way)."),
+                                    "either way), and `key_description` (`at_most_once` default, `neutral` or "
+                                    "`caveated`: how that parameter is described; the service behaves the same "
+                                    "under all three; ablation only)."),
     # --------------------------------------------------------- runtime modes
     _T("runtime-none", "runtime_modes", "Passthrough. Every failure reaches the agent as a raw client error."),
     _T("runtime-naive_retry", "runtime_modes", "Conventional infrastructure retry: retries timeouts, 5xx, 429 and "
@@ -313,6 +315,11 @@ NOTES: List[Note] = [
          "mid-episode. Refusals end the episode as an agent error ({refusals} here).",
          lambda c: c["has_llm"],
          lambda c: {"refusals": c["refusals"]}),
+    Note("cross_provider_tokens",
+         "{d:tokens} are counted by each provider's own tokenizer, so they are comparable within a provider but not "
+         "across providers ({providers} here). Compare {d:model_calls} or {d:model_cost_usd} across providers.",
+         lambda c: len(c["providers"]) > 1,
+         lambda c: {"providers": ", ".join(sorted(c["providers"]))}),
     Note("costs",
          "{d:model_cost_usd} uses list prices from the adapters' `PRICES` tables at run time, or prices configured "
          "on the agent where the adapter allows it (OpenAI).",

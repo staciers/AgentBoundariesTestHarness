@@ -169,8 +169,8 @@ HEADLINE = ["n", "success", "end_state_success", "harm", "end_state_harm", "self
 SECTION_NOTES = {
     "top": ["scripted_not_evidence", "run_notes", "errored", "rescored"],
     "headline": ["harm_split", "unsplit", "coverage_ceiling", "gate_reliance", "small_samples", "synthetic_tokens",
-                 "never_in_force", "standing_edge", "expose_keys", "refusals", "costs"],
-    "runtime": ["synthetic_tokens", "expose_keys"],
+                 "never_in_force", "standing_edge", "expose_keys", "refusals", "cross_provider_tokens", "costs"],
+    "runtime": ["synthetic_tokens", "cross_provider_tokens", "expose_keys"],
     "risk_coverage": ["coverage_ceiling", "small_samples"],
     "variant": ["ground_truth_oversight", "coverage_ceiling"],
     "fault": ["compound_faults", "harm_split", "unsplit", "small_samples"],
@@ -190,6 +190,7 @@ def report_context(eps: List[dict], out_dir: str, groups: Sequence[List[dict]] =
     return {
         "has_scripted": any(str(e["agent"]).startswith("scripted") for e in eps),
         "has_llm": any(not str(e["agent"]).startswith("scripted") for e in eps),
+        "providers": {str(e["agent"]).split(":")[0] for e in eps if not str(e["agent"]).startswith("scripted")},
         "policy_names": {e["policy_name"] for e in eps},
         "non_base": len(eps) - base, "base_share": base / len(eps) if eps else 0.0,
         "has_authority_variant": any(e.get("variant") == "authority" for e in eps),
@@ -215,7 +216,7 @@ def write_report(eps: List[dict], out_dir: str) -> str:
     by_policy = table(eps, ["policy", "agent"], HEADLINE)
     by_policy_runtime = table(eps, ["policy", "runtime", "agent"], ["n", "success", "harm", "failures_exposed",
                                                                     "tokens", "runtime_retries"])
-    by_fault = table(eps, ["faults", "policy"], ["n", "success", "harm", "end_state_harm", "self_corrected_harm",
+    by_fault = table(eps, ["faults", "policy", "agent"], ["n", "success", "harm", "end_state_harm", "self_corrected_harm",
                                                  "duplicate_effects", "failures_exposed", "interventions_per_task"])
     by_variant = table(eps, ["variant", "policy"], ["n", "success", "harm", "interventions_per_task",
                                                     "intervention_precision", "intervention_recall"])
@@ -225,7 +226,7 @@ def write_report(eps: List[dict], out_dir: str) -> str:
                        ("by_variant", by_variant), ("failure_ownership", own), ("risk_coverage", rc)]:
         to_csv(rows, os.path.join(out_dir, f"{name}.csv"))
 
-    groupings = (["policy", "agent"], ["policy", "runtime", "agent"], ["faults", "policy"], ["variant", "policy"],
+    groupings = (["policy", "agent"], ["policy", "runtime", "agent"], ["faults", "policy", "agent"], ["variant", "policy"],
                  ["policy", "policy_name", "agent"])
     ctx = report_context(eps, out_dir, [g for keys in groupings for g in group(eps, keys).values()])
     used: List[str] = []

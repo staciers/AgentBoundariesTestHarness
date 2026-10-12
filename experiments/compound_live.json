@@ -1,6 +1,6 @@
 {
   "name": "compound-live",
-  "_comment": "H1/H5: faults where state-checking alone fails, plus a no-keys ablation of P1. Dry-run first.",
+  "_comment": "H1/H5: faults where state-checking alone fails, plus a no-keys ablation of P1. Model pairs matched by tier: Opus 5.5 ~ gpt-6.1-sol, Haiku 5.5 ~ gpt-6-luna. Dry-run first.",
   "scenarios": [
     "travel/base",
     "commerce/base",
@@ -27,6 +27,16 @@
     {
       "type": "anthropic",
       "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6.1-sol",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6-luna",
       "effort": "high"
     }
   ],

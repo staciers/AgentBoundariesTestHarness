@@ -478,6 +478,43 @@ class TestDefinitionsAndReport(unittest.TestCase):
         self.assertIn("coverage_ceiling", refs)
 
 
+class TestAblationAndBlocks(unittest.TestCase):
+    def schema(self, policy):
+        from abh.controlplane import ControlPlane
+        from abh.policies import make_policy
+        cp = ControlPlane(make_scenario("travel/base"), make_policy(policy), None, None, None, None, None)
+        return {t["name"]: t["input_schema"]["properties"] for t in cp.tool_schemas()}["book_trip"]
+
+    def test_key_wording_variants(self):
+        from abh.tools import KEY_DESCRIPTIONS
+        self.assertIn("at most once", self.schema("P1")["idempotency_key"]["description"])
+        for wording, text in KEY_DESCRIPTIONS.items():
+            got = self.schema({"name": "P1", "key_description": wording})["idempotency_key"]["description"]
+            self.assertEqual(got, text)
+        with self.assertRaises(ValueError):
+            self.schema({"name": "P1", "key_description": "bogus"})
+
+    def test_wording_does_not_change_service_behaviour(self):
+        # Same scripted behaviour under every wording: only the description differs.
+        outs = []
+        for w in ("at_most_once", "neutral", "caveated"):
+            r = run_episode(EpisodeConfig("travel/base", {"name": "P1", "key_description": w}, "scripted",
+                                          [FaultSpec.parse("partial_mutation").to_dict()], "x", seed=2))
+            outs.append((r["outcome"], r["duplicate_effects"], r["sim_duration_ms"]))
+        self.assertEqual(len(set(outs)), 1)
+
+    def test_blocks_expand_and_dedupe(self):
+        spec = {"scenarios": ["travel/base"], "agents": [{"type": "scripted"}], "seeds": 2,
+                "policies": ["P1"], "fault_conditions": ["none"],
+                "blocks": [{"_name": "main", "policies": ["P1", "P6"]},
+                           {"_name": "ablation", "policies": ["P1", {"name": "P1", "key_description": "neutral"}],
+                            "fault_conditions": [["partial_mutation", "timeout_after_execution"]]}]}
+        cfgs = list(expand(spec))
+        labels = sorted({(c.fault_label, str(c.policy)) for c in cfgs})
+        self.assertEqual(len(cfgs), 2 * 2 + 2 * 2)
+        self.assertIn(("partial_mutation+timeout_after_execution", "{'name': 'P1', 'key_description': 'neutral'}"), labels)
+
+
 class TestDeterminismAndRunner(unittest.TestCase):
     def test_deterministic(self):
         a = ep("commerce/ambiguous", "P5", "careful", ["timeout_after_execution"], seed=3)

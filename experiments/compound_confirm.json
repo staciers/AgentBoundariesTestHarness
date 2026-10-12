@@ -1,0 +1,28 @@
+{
+  "name": "compound-confirm",
+  "_comment": "Confirmatory run, pre-registered in docs/preregistration/compound-confirm.md. Fresh seeds (100-129). The single-timeout condition is dropped (settled in compound-live). Do not change after the run starts.",
+  "scenarios": ["travel/base", "commerce/base", "devops/base", "scheduling/base"],
+  "agents": [
+    {"type": "anthropic", "model": "claude-opus-5-5", "effort": "high"},
+    {"type": "anthropic", "model": "claude-haiku-5-5", "effort": "high"},
+    {"type": "openai", "model": "gpt-6.1-sol", "effort": "high"},
+    {"type": "openai", "model": "gpt-6-luna", "effort": "high"}
+  ],
+  "seeds": {"start": 100, "count": 30},
+  "workers": 4,
+  "keep_traces": true,
+  "blocks": [
+    {"_name": "main",
+     "fault_conditions": [["timeout_after_execution", "delayed_visibility"],
+                          ["partial_mutation", "timeout_after_execution"]],
+     "policies": ["P1", {"name": "P1", "expose_keys": false}]},
+    {"_name": "key-wording ablation",
+     "fault_conditions": [["partial_mutation", "timeout_after_execution"]],
+     "policies": [{"name": "P1", "key_description": "neutral"}, {"name": "P1", "key_description": "caveated"}]},
+    {"_name": "reference: runtime manipulation check",
+     "fault_conditions": [["timeout_after_execution", "delayed_visibility"],
+                          ["partial_mutation", "timeout_after_execution"]],
+     "policies": [{"name": "P6", "threshold": 0.7}],
+     "seeds": {"start": 100, "count": 10}}
+  ]
+}

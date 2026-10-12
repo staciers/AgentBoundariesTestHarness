@@ -97,14 +97,14 @@ class ToolSpec:
     tags: List[str] = field(default_factory=list)
 
     def input_schema(self, extra: Optional[Dict[str, dict]] = None,
-                     extra_required: Optional[List[str]] = None, expose_key: bool = True) -> dict:
+                     extra_required: Optional[List[str]] = None, expose_key: bool = True,
+                     key_description: str = "at_most_once") -> dict:
         props = dict(self.params)
         req = list(self.required)
         if self.semantics.supports_idempotency_key and expose_key:
             props["idempotency_key"] = {
                 "type": "string",
-                "description": "Optional client-supplied key. Requests repeated with "
-                               "the same key are executed at most once.",
+                "description": KEY_DESCRIPTIONS[key_description],
             }
         if extra:
             props.update(extra)
@@ -124,6 +124,19 @@ class ToolSpec:
         if key:
             world.put(f"_idem:{self.name}", key, {"response": resp})
         return resp
+
+
+# How the idempotency_key parameter is described to agents (key-wording ablation).
+# "at_most_once" is the original wording; the others test whether the promise it makes
+# drives over-trust. The service behaves identically under all three: it records a key
+# only when a request completes.
+KEY_DESCRIPTIONS = {
+    "at_most_once": "Optional client-supplied key. Requests repeated with the same key are executed at most once.",
+    "neutral": "Optional client-supplied request identifier.",
+    "caveated": ("Optional client-supplied key. A request repeated with the same key is not executed again if the "
+                 "first one completed. If the first request failed partway, part of it may already have taken "
+                 "effect; check current state before retrying."),
+}
 
 
 class ToolRegistry:

@@ -189,7 +189,7 @@ Prospectus §5. Parameters appear in labels, e.g. `P6[threshold=0.7]`.
 **`policy-ORACLE`**: Gates exactly when ground truth says a human is needed. Approximate upper bound.
 
 <a id="policy-params"></a>
-**`policy-params`**: Any policy also accepts `runtime` (override the runtime mode), `ask_human` (expose the ask tool) and `expose_keys` (whether tool schemas offer agents an `idempotency_key`; default true; the semantic runtime attaches its own keys either way).
+**`policy-params`**: Any policy also accepts `runtime` (override the runtime mode), `ask_human` (expose the ask tool) and `expose_keys` (whether tool schemas offer agents an `idempotency_key`; default true; the semantic runtime attaches its own keys either way), and `key_description` (`at_most_once` default, `neutral` or `caveated`: how that parameter is described; the service behaves the same under all three; ablation only).
 
 ## Runtime modes
 
@@ -346,6 +346,9 @@ Footnotes a report includes when they apply to its data. Values in braces are fi
 
 <a id="note-refusals"></a>
 **refusals**: Server-side refusal fallbacks are off in the LLM adapters, so a model is never silently swapped mid-episode. Refusals end the episode as an agent error ({refusals} here).
+
+<a id="note-cross_provider_tokens"></a>
+**cross_provider_tokens**: [tokens](#tokens) are counted by each provider's own tokenizer, so they are comparable within a provider but not across providers ({providers} here). Compare [model_calls](#model_calls) or [model_cost_usd](#model_cost_usd) across providers.
 
 <a id="note-costs"></a>
 **costs**: [model_cost_usd](#model_cost_usd) uses list prices from the adapters' `PRICES` tables at run time, or prices configured on the agent where the adapter allows it (OpenAI).

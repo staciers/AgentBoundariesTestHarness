@@ -108,7 +108,8 @@ class ControlPlane:
                                                    "and is what the user wants done now."}}
             req = ["confidence"]
         out = [{"name": t.name, "description": t.description,
-                "input_schema": t.input_schema(extra, req, expose_key=self.policy.expose_keys)}
+                "input_schema": t.input_schema(extra, req, expose_key=self.policy.expose_keys,
+                                               key_description=self.policy.key_description)}
                for t in self.tools]
         if self.policy.expose_ask_human:
             out.append(ask_human_schema())
