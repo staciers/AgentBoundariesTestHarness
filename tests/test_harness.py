@@ -426,6 +426,58 @@ class TestReplayAndRescore(unittest.TestCase):
             self.assertTrue(all("end_state_harm" in r for r in load_episodes(path)))
 
 
+class TestDefinitionsAndReport(unittest.TestCase):
+    def test_definitions_doc_is_current(self):
+        from abh.definitions import DEFINITIONS_PATH, render_definitions_md
+        with open(DEFINITIONS_PATH) as f:
+            self.assertEqual(f.read(), render_definitions_md(),
+                             "docs/DEFINITIONS.md is stale: run `python -m abh definitions`")
+
+    def test_every_note_is_attached_to_a_section(self):
+        from abh.definitions import NOTES
+        from abh.metrics import SECTION_NOTES
+        attached = {k for keys in SECTION_NOTES.values() for k in keys}
+        self.assertEqual(attached, {n.key for n in NOTES})
+
+    def report(self, spec, mutate=None):
+        import re
+        from abh.metrics import write_report
+        with tempfile.TemporaryDirectory() as d:
+            out = run_experiment(dict(spec, name="r"), d)
+            eps = load_episodes(os.path.join(out, "episodes.jsonl"))
+            if mutate:
+                for e in eps:
+                    mutate(e)
+            text = open(write_report(eps, out)).read()
+        refs = set(re.findall(r"\[\^([a-z_]+)\](?!:)", text))
+        defs = set(re.findall(r"^\[\^([a-z_]+)\]:", text, re.M))
+        self.assertEqual(refs, defs, "every footnote reference needs exactly one definition")
+        return text, refs
+
+    BASE = {"scenarios": ["travel/base"], "policies": ["P1", "P6"], "agents": [{"type": "scripted"}],
+            "fault_conditions": ["none", ["timeout_after_execution", "delayed_visibility"]], "seeds": 2}
+
+    def test_headers_link_to_definitions(self):
+        text, _ = self.report(self.BASE)
+        self.assertIn("[end_state_harm](", text)
+        self.assertIn("DEFINITIONS.md#self_corrected_harm", text)
+
+    def test_footnotes_follow_the_data(self):
+        _, refs = self.report(self.BASE)
+        self.assertTrue({"scripted_not_evidence", "harm_split", "compound_faults", "small_samples"} <= refs)
+        self.assertFalse({"coverage_ceiling", "unsplit", "rescored", "refusals"} & refs)
+
+        def predate_split(e):
+            for k in ("end_state_harm", "self_corrected_harm", "end_state_success"):
+                e.pop(k, None)
+        text, refs = self.report(self.BASE, predate_split)
+        self.assertIn("unsplit", refs)
+        self.assertIn("predate the end-state", text)
+
+        _, refs = self.report(dict(self.BASE, scenarios=["travel/authority"]))
+        self.assertIn("coverage_ceiling", refs)
+
+
 class TestDeterminismAndRunner(unittest.TestCase):
     def test_deterministic(self):
         a = ep("commerce/ambiguous", "P5", "careful", ["timeout_after_execution"], seed=3)

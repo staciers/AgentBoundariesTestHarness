@@ -24,6 +24,8 @@ policies on identical agents, faults and seeds.
 
 ## Ground truth
 
+Field-level definitions: [DEFINITIONS.md](DEFINITIONS.md). This table shows where each label comes from.
+
 | Label | Source | Used for |
 |---|---|---|
 | Task success | `Invariant(kind="task")` evaluated on `World.truth()` | success, coverage |
@@ -35,6 +37,9 @@ policies on identical agents, faults and seeds.
 | Fault committed | `InjectedFault.committed` | RQ1 analysis |
 
 ## Harm: end state vs. self-corrected
+
+This section explains the design. The canonical definitions of each field are in
+[DEFINITIONS.md](DEFINITIONS.md#outcomes).
 
 Invariants only see the final world, so an agent that double-books and then cancels the
 extra booking would otherwise look identical to one that booked once. Every episode is

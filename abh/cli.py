@@ -5,6 +5,7 @@
     python -m abh run spec.json --resume runs/x     # continue an interrupted run
     python -m abh report runs/x                     # rebuild report from episodes.jsonl
     python -m abh rescore runs/x                    # replay traces under the current evaluator
+    python -m abh definitions                       # regenerate docs/DEFINITIONS.md
     python -m abh episode travel/base --policy P6 --fault timeout_after_execution --agent scripted:naive -v
 """
 from __future__ import annotations
@@ -55,6 +56,7 @@ def main(argv=None) -> int:
     r.add_argument("--dry-run", action="store_true")
     rp = sub.add_parser("report")
     rp.add_argument("run_dir")
+    sub.add_parser("definitions", help="regenerate docs/DEFINITIONS.md from abh/definitions.py")
     rs = sub.add_parser("rescore", help="re-score a run's traces under the current evaluator (no model calls)")
     rs.add_argument("run_dir")
     e = sub.add_parser("episode")
@@ -89,6 +91,10 @@ def main(argv=None) -> int:
     if a.cmd == "report":
         eps = [x for x in load_episodes(f"{a.run_dir}/episodes.jsonl") if "error" not in x]
         print(write_report(eps, a.run_dir))
+        return 0
+    if a.cmd == "definitions":
+        from .definitions import write_definitions_md
+        print(write_definitions_md())
         return 0
     if a.cmd == "rescore":
         from .rescore import rescore_run

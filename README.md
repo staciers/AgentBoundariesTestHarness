@@ -122,28 +122,22 @@ Any policy also accepts `"runtime"`, and `"ask_human": true` exposes the ask too
 
 ## Read this before interpreting results
 
-1. **Scripted-agent results check the harness. They are not evidence for the hypotheses.** The
-   scripted agent's competence knobs and the ORACLE's labels encode the paper's assumptions.
-   Patterns like "P6 beats P1 on execution faults" are partly built in. The evidence has to come
-   from LLM agents, across model families and capability levels. Use scripted runs to debug
-   scenarios, size experiments, and run sensitivity analyses (for example, sweep `replan_skill`).
-2. **Ceilings on autonomous coverage.** Two-thirds of the scenarios (`ambiguous`, `authority`)
-   cannot be completed correctly without a human, so with the full scenario set coverage tops out
-   near 0.33. Compare policies at matched task mixes, and also report results by `variant`.
-3. **Gate reliance.** Under gated policies (P2/P3/P4/P6/ORACLE), agents are told that some actions
-   may be sent to an approver. A scripted agent that is aware of an authority rule then goes
-   ahead, trusting the gate. That is why P3 can show *more* authority violations than P1: P1
-   agents more often refuse. LLMs may do the same, so this is a real effect, but report it as
-   one.
-4. **Harm is split into end-state and self-corrected.** An agent that duplicates an action
-   and later undoes it ends in a correct state, but customers still saw a double charge or
-   page. `success` is strict and excludes it; `end_state_success` allows it. See
-   [Harm: end state vs. self-corrected](docs/ARCHITECTURE.md#harm-end-state-vs-self-corrected).
-5. **Failure ownership is heuristic.** A fault counts as runtime-resolved when the call ended
-   resolved after a runtime action. It counts as human-resolved when it was escalated. Otherwise
-   it counts as passed to the agent, whatever the agent then did with it.
-6. **Refusal fallbacks are off by default** in the Claude adapter. Silently switching models
-   would confound the model-capability factor. Refusals end the episode as `agent_error`.
+Every term in a report, from column names to outcomes, policies, faults and execution states,
+is defined in [docs/DEFINITIONS.md](docs/DEFINITIONS.md), and report column headers link
+there. Caveats appear in each report as footnotes, and only when they apply to that run's
+data. The full catalogue is in [Report notes](docs/DEFINITIONS.md#report-notes). The ones
+that most often change how a result reads:
+
+- [Scripted-agent results check the harness; they aren't evidence](docs/DEFINITIONS.md#note-scripted_not_evidence)
+- [Autonomous coverage is capped by the share of `base` scenarios](docs/DEFINITIONS.md#note-coverage_ceiling)
+- [Gate reliance under approval-gated policies](docs/DEFINITIONS.md#note-gate_reliance)
+- [End-state vs. self-corrected harm](docs/DEFINITIONS.md#note-harm_split) (rationale in
+  [ARCHITECTURE.md](docs/ARCHITECTURE.md#harm-end-state-vs-self-corrected))
+- [Failure ownership is heuristic](docs/DEFINITIONS.md#note-ownership_heuristic)
+- [Small groups](docs/DEFINITIONS.md#note-small_samples)
+
+Definitions and notes are maintained in `abh/definitions.py`. After editing it, run
+`python3 -m abh definitions` to regenerate the doc; a test fails if you forget.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the harness maps to the RQs and
 hypotheses, and [docs/OPENAI_MODELS.md](docs/OPENAI_MODELS.md) for the OpenAI integration and
