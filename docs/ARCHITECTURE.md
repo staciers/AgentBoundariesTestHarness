@@ -167,8 +167,12 @@ The control plane is set up to become the agent control plane in the Paper 2 arc
 | Human attention (Paper 5) | `SimulatedHuman`, `HumanConfig.budget`, fatigue | shared reviewer pool across concurrent episodes, queueing, priority scheduling |
 | Provenance (Paper 4) | `Trace`, `EscalationRequest.context`, `InteractiveHuman` | vary the information shown in escalations; measure decision time and accuracy |
 
-The `devops` domain is the natural seed for Paper 2. Extend it with repositories, PRs, CI runs,
-a service catalogue and multi-step migrations, and keep the same control plane.
+The `platform` domain (`abh/domains/platform.py`) seeds Paper 2. An agent works as a software
+engineer: it branches, commits, runs asynchronous CI, opens PRs and, with code-owner approval,
+merges. Its services model the platform's own guarantees: one open PR per head→base, no-op
+commits, branch protection, and CI that takes minutes. Extend it with a service catalogue,
+deploys and multi-step migrations, and keep the same control plane. `devops` covers the
+operations side.
 
 ## Known limitations / next steps
 

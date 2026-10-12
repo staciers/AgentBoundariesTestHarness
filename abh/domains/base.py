@@ -162,7 +162,7 @@ def list_scenarios(domain: Optional[str] = None) -> List[str]:
 
 
 def _ensure_loaded():
-    from . import travel, commerce, devops, scheduling  # noqa: F401
+    from . import travel, commerce, devops, scheduling, platform  # noqa: F401
 
 
 # --------------------------------------------------------------- helpers

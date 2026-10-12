@@ -102,7 +102,7 @@ prices are supplied.
 | Human | `abh/human.py` | simulated (log-normal latency, error rate, vigilance decrement, attention budget) or interactive |
 | Policies | `abh/policies.py` | P1–P6 and ORACLE; the runtime mode can be overridden per experiment |
 | Control plane | `abh/controlplane.py` | authority → gate → runtime → route; does the ground-truth bookkeeping |
-| Scenarios | `abh/domains/` | travel, commerce, devops, scheduling × {base, ambiguous, authority} |
+| Scenarios | `abh/domains/` | travel, commerce, devops, scheduling, platform (repo / CI / PR, the Paper 2 seed) × {base, ambiguous, authority} |
 | Agents | `abh/agents/` | `scripted` baseline plus `anthropic` and `openai` manual tool loops |
 
 ### Policies

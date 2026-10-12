@@ -218,7 +218,7 @@ class ScriptedAgent(Agent):
         if kind == "rejected" or meta.get("error_kind") in ("business_error", "invalid_request"):
             if step.on_reject and self._chance("replan_skill"):
                 self.idx = next(i for i, s in enumerate(self.plan) if s.name == step.on_reject)
-                self.keys.pop(pend.step_idx, None)
+                self._forget_keys_from(self.idx)
                 return
             self._give_up(f"{step.tool} was rejected: {r.text()[:120]}")
             return
@@ -252,6 +252,12 @@ class ScriptedAgent(Agent):
         if stale:
             first = next((i for i, s in enumerate(self.plan) if set(s.uses) & stale), self.idx)
             self.idx = min(self.idx, first)
+            self._forget_keys_from(self.idx)
+
+    def _forget_keys_from(self, idx: int) -> None:
+        """Steps redone after a replan or correction are new requests: don't reuse their old keys."""
+        for i in [k for k in self.keys if k >= idx]:
+            del self.keys[i]
 
     def _advance(self, step, content) -> None:
         if step.save:

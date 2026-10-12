@@ -44,7 +44,7 @@ Legend: ✅ covered · 🟡 partial · ❌ not yet
 | Fault taxonomy (12 types) | ✅ | ✅ | 🟡 timeout-after, delayed visibility, partial mutation |
 | Compound faults | ✅ | ✅ | ✅ |
 | Action types (read-only → irreversible) | ✅ present in all base scenarios | ✅ | 🟡 present, not yet analysed by action type |
-| Domains (4) | ✅ | ✅ | 🟡 `base` variants only |
+| Domains (5; `platform` added 2026-10-12) | ✅ | 🟡 `platform` swept with scripted agents only | 🟡 `base` variants of the original 4 only |
 | Variants (`ambiguous`, `authority`) | ✅ | ✅ | ❌ |
 | Model families and capability levels | ✅ Anthropic, OpenAI | n/a | 🟡 2 families × 2 tiers; no top tier, no third family |
 | Failure *frequencies* (Phase IV) | ❌ faults are scheduled at a call, not injected at a rate | ❌ | ❌ |
@@ -71,5 +71,12 @@ Harness work these stages don't cover:
    seed of Paper 5.
 3. **A small interactive pilot with real people**, to calibrate human latency and error rates
    before making claims about human cost.
-4. **More scenarios.** All results currently generalise to four tasks.
+4. **More scenarios.** LLM results currently generalise to four tasks. `platform` (repo / CI /
+   PR) is built and scripted-validated: 3 variants, all 12 faults.
 5. **Optionally, a third model family.**
+6. **Idempotency keys reused with different parameters.** Our services return the stored result
+   for a reused key even when the request differs. Real APIs such as Stripe reject that.
+   `platform` showed the hazard: a CI re-run that reused a key got the stale run from the old
+   commit. Make this a per-service policy (`return_stored` vs `reject_mismatch`) and study it.
+   Deferred until the confirmation run's analysis is done, because the pre-registration freezes
+   the system under test.
