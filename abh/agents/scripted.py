@@ -157,7 +157,7 @@ class ScriptedAgent(Agent):
             self.asked.add(("spurious", self.idx))
             return self._ask("ask_approve", "Before I proceed, is this OK?", self.idx, step.tool, args)
 
-        if tool and tool.semantics.supports_idempotency_key:
+        if tool and tool.semantics.supports_idempotency_key and self.brief.expose_keys:
             if self.idx not in self.keys and self._chance("use_idempotency_keys"):
                 self.keys[self.idx] = f"agent-{step.name}-{self.n}"
             if self.idx in self.keys:

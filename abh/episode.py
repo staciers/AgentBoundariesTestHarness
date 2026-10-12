@@ -62,6 +62,7 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True) -> Dict[str, Any]:
 
     brief = TaskBrief(prompt=scenario.prompt, system_notes=scenario.system_notes(), tool_schemas=cp.tool_schemas(),
                       expose_ask_human=policy.expose_ask_human, require_confidence=policy.require_confidence,
+                      expose_keys=policy.expose_keys,
                       approval_gated=type(policy).gate is not ControlPolicy.gate, scenario=scenario,
                       policy_check=lambda t, a: scenario.delegation.check(t, a, world))
     agent.start(brief, cfg.seed)

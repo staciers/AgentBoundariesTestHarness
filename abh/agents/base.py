@@ -42,6 +42,7 @@ class TaskBrief:
     expose_ask_human: bool
     require_confidence: bool
     approval_gated: bool = False               # the policy may route actions to a human approver
+    expose_keys: bool = True                   # tool schemas offer an idempotency_key argument
     scenario: Any = None                       # scripted agent only (reference plan)
     policy_check: Optional[Callable] = None    # scripted agent only (reads policy text)
 

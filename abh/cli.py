@@ -99,7 +99,7 @@ def main(argv=None) -> int:
                 "duplicate_effects", "interventions", "interventions_necessary", "needs_total", "needs_met",
                 "failures_exposed_to_agent", "model_calls", "input_tokens", "output_tokens",
                 "cache_read_tokens", "model_cost_usd", "model_latency_ms", "agent_tool_calls", "service_invocations",
-                "sim_duration_ms", "faults_injected", "final_message"]
+                "sim_duration_ms", "faults_injected", "termination", "agent_error", "final_message"]
         print(json.dumps({k: res[k] for k in keys}, indent=2, default=str))
         return 0
     return 1

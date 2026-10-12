@@ -97,10 +97,10 @@ class ToolSpec:
     tags: List[str] = field(default_factory=list)
 
     def input_schema(self, extra: Optional[Dict[str, dict]] = None,
-                     extra_required: Optional[List[str]] = None) -> dict:
+                     extra_required: Optional[List[str]] = None, expose_key: bool = True) -> dict:
         props = dict(self.params)
         req = list(self.required)
-        if self.semantics.supports_idempotency_key:
+        if self.semantics.supports_idempotency_key and expose_key:
             props["idempotency_key"] = {
                 "type": "string",
                 "description": "Optional client-supplied key. Requests repeated with "

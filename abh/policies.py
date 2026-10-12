@@ -42,6 +42,10 @@ class ControlPolicy:
             self.runtime_mode = RuntimeMode(params["runtime"])
         if "ask_human" in params:
             self.expose_ask_human = bool(params["ask_human"])
+        # Whether agents may supply idempotency keys. Hiding them isolates "the platform
+        # provides keys" from "the agent uses keys the platform offers" (H1 ablation).
+        # The semantic runtime attaches its own keys either way.
+        self.expose_keys = bool(params.get("expose_keys", True))
 
     @property
     def label(self) -> str:

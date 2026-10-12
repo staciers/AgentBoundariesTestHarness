@@ -41,8 +41,13 @@ def _search_flights(w: World, a: dict, ctx) -> dict:
     return {"flights": rows}
 
 
+CITY_ALIASES = {"nyc": "NYC", "new york": "NYC", "new york city": "NYC", "new york, ny": "NYC",
+                "manhattan": "NYC", "manhattan, ny": "NYC"}
+
+
 def _search_hotels(w: World, a: dict, ctx) -> dict:
-    rows = w.scan("hotels", where=lambda h: h["city"] == a["city"] and h["rooms"] > 0)
+    city = CITY_ALIASES.get(str(a["city"]).strip().lower(), a["city"])
+    rows = w.scan("hotels", where=lambda h: h["city"] == city and h["rooms"] > 0)
     return {"hotels": [dict(h, total_for_stay=h["price"] * int(a.get("nights", NIGHTS))) for h in rows]}
 
 

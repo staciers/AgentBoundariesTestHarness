@@ -254,6 +254,76 @@ class TestCompoundFaults(unittest.TestCase):
             list(expand(spec))
 
 
+class TestScenarioInputTolerance(unittest.TestCase):
+    """Reasonable spellings an LLM uses must behave like the canonical ones (found in live runs)."""
+
+    def setup(self, sid):
+        sc = make_scenario(sid)
+        w = World(SimClock())
+        sc.build_world(w)
+        return sc, w, {t.name: t for t in sc.tools}
+
+    def test_internal_email_addresses_are_directory_ids(self):
+        sc, w, tools = self.setup("scheduling/base")
+        full = ["alice@corp.example", "bob@corp.example", "carol@corp.example"]
+        ctx = __import__("abh.tools", fromlist=["InvocationContext"]).InvocationContext("c1")
+        slots = tools["find_free_slots"].execute(w, {"attendees": full, "duration_min": 30}, ctx)["slots"]
+        self.assertEqual(slots[0], "2026-11-12T12:00")
+        args = {"title": "Platform leads sync", "attendees": full, "start": slots[0], "duration_min": 30}
+        self.assertTrue(sc.delegation.check("create_meeting", args, w).permitted)
+        self.assertTrue(sc.oracle.action_correct("create_meeting", args, w)[0])
+
+    def test_external_address_still_needs_approval(self):
+        sc, w, _ = self.setup("scheduling/authority")
+        args = {"attendees": ["alice@corp.example", "pat@vendorco.com"]}
+        self.assertFalse(sc.delegation.check("create_meeting", args, w).permitted)
+
+    def test_city_aliases(self):
+        sc, w, tools = self.setup("travel/base")
+        ctx = __import__("abh.tools", fromlist=["InvocationContext"]).InvocationContext("c1")
+        for city in ("NYC", "New York", "new york city", "Manhattan"):
+            r = tools["search_hotels"].execute(w, {"city": city, "checkin": "2026-11-12", "nights": 2}, ctx)
+            self.assertEqual(len(r["hotels"]), 3, city)
+
+
+class TestHiddenKeys(unittest.TestCase):
+    HIDE = {"name": "P1", "expose_keys": False}
+
+    def schemas(self, policy):
+        from abh.controlplane import ControlPlane
+        from abh.policies import make_policy
+        sc = make_scenario("devops/base")
+        cp = ControlPlane(sc, make_policy(policy), None, None, None, None, None)
+        return {t["name"]: t["input_schema"]["properties"] for t in cp.tool_schemas()}
+
+    def test_schema_hides_key(self):
+        self.assertIn("idempotency_key", self.schemas("P1")["create_incident"])
+        self.assertNotIn("idempotency_key", self.schemas(self.HIDE)["create_incident"])
+
+    def test_label_distinguishes_condition(self):
+        from abh.policies import make_policy
+        self.assertEqual(make_policy(self.HIDE).label, "P1[expose_keys=False]")
+
+    def run_cfg(self, policy, agent, faults):
+        fs = [FaultSpec.parse(f) for f in faults]
+        return run_episode(EpisodeConfig("devops/base", policy, agent, [f.to_dict() for f in fs],
+                                         "+".join(f.type.value for f in fs)))
+
+    def test_agent_supplied_key_ignored_when_hidden(self):
+        # A key-happy agent can't protect itself when the platform doesn't offer keys.
+        agent = {"type": "scripted", "profile": "strong", "use_idempotency_keys": 1.0}
+        faults = ["timeout_after_execution", "delayed_visibility"]
+        self.assertTrue(self.run_cfg("P1", agent, faults)["success"])
+        r = self.run_cfg(self.HIDE, agent, faults)
+        self.assertGreater(r["duplicate_effects"], 0)
+
+    def test_semantic_runtime_keys_unaffected(self):
+        r = self.run_cfg({"name": "P6", "expose_keys": False}, "scripted",
+                         ["timeout_after_execution", "delayed_visibility"])
+        self.assertTrue(r["success"])
+        self.assertEqual(r["duplicate_effects"], 0)
+
+
 class TestDeterminismAndRunner(unittest.TestCase):
     def test_deterministic(self):
         a = ep("commerce/ambiguous", "P5", "careful", ["timeout_after_execution"], seed=3)

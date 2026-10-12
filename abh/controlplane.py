@@ -107,7 +107,8 @@ class ControlPlane:
                                     "description": "Your confidence (0-1) that this exact call is correct "
                                                    "and is what the user wants done now."}}
             req = ["confidence"]
-        out = [{"name": t.name, "description": t.description, "input_schema": t.input_schema(extra, req)}
+        out = [{"name": t.name, "description": t.description,
+                "input_schema": t.input_schema(extra, req, expose_key=self.policy.expose_keys)}
                for t in self.tools]
         if self.policy.expose_ask_human:
             out.append(ask_human_schema())
@@ -154,6 +155,9 @@ class ControlPlane:
             return ToolResult(call.id, f"Error: unknown tool {call.name}", True, {"kind": "error",
                                                                                  "error_kind": "unknown_tool"})
         args = {k: v for k, v in call.args.items() if k not in META_ARGS}
+        if not self.policy.expose_keys and "idempotency_key" in args:
+            args.pop("idempotency_key")  # not offered to the agent, so not honoured
+            self.trace.emit("agent_key_ignored", "control_plane", call_id=call.id)
         auth = self.s.delegation.check(tool.name, args, self.world)
         needs_human, _ = self.oracle.needs_human(tool.name, args, self.world)
         pre_approved = _canon(tool.name, args) in self.approved
