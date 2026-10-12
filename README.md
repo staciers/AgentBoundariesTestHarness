@@ -54,6 +54,8 @@ python3 -m unittest discover -s tests -v
 `by_policy`, `by_policy_runtime`, `by_fault`, `by_variant`, `failure_ownership` and
 `risk_coverage`. If matplotlib is installed, it also writes `risk_coverage.png`. Runs can be
 resumed with `--resume runs/<dir>`, and `python3 -m abh report runs/<dir>` rebuilds the report.
+`python3 -m abh rescore runs/<dir>` replays saved traces under the current evaluator, with no
+model calls. Use it after changing metrics.
 
 ### LLM agents (Claude and OpenAI)
 
@@ -133,10 +135,14 @@ Any policy also accepts `"runtime"`, and `"ask_human": true` exposes the ask too
    ahead, trusting the gate. That is why P3 can show *more* authority violations than P1: P1
    agents more often refuse. LLMs may do the same, so this is a real effect, but report it as
    one.
-4. **Failure ownership is heuristic.** A fault counts as runtime-resolved when the call ended
+4. **Harm is split into end-state and self-corrected.** An agent that duplicates an action
+   and later undoes it ends in a correct state, but customers still saw a double charge or
+   page. `success` is strict and excludes it; `end_state_success` allows it. See
+   [Harm: end state vs. self-corrected](docs/ARCHITECTURE.md#harm-end-state-vs-self-corrected).
+5. **Failure ownership is heuristic.** A fault counts as runtime-resolved when the call ended
    resolved after a runtime action. It counts as human-resolved when it was escalated. Otherwise
    it counts as passed to the agent, whatever the agent then did with it.
-5. **Refusal fallbacks are off by default** in the Claude adapter. Silently switching models
+6. **Refusal fallbacks are off by default** in the Claude adapter. Silently switching models
    would confound the model-capability factor. Refusals end the episode as `agent_error`.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the harness maps to the RQs and

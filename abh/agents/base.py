@@ -45,6 +45,7 @@ class TaskBrief:
     expose_keys: bool = True                   # tool schemas offer an idempotency_key argument
     scenario: Any = None                       # scripted agent only (reference plan)
     policy_check: Optional[Callable] = None    # scripted agent only (reads policy text)
+    clock: Any = None                          # replay agent only (re-times recorded calls)
 
 
 class Agent:

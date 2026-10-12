@@ -44,6 +44,7 @@ class Effect:
     dedupe_key: str  # business identity used for duplicate detection
     data: dict = field(default_factory=dict)
     compensated: bool = False
+    compensated_seq: Optional[int] = None  # ledger position at which it was undone
 
 
 class World:
@@ -108,8 +109,9 @@ class World:
 
     def compensate_effects(self, predicate: Callable[[Effect], bool]) -> None:
         for e in self.effects:
-            if predicate(e):
+            if predicate(e) and not e.compensated:
                 e.compensated = True
+                e.compensated_seq = next(self._seq)
 
     # ------------------------------------------------ fault-injection hooks
     def begin_capture(self) -> None:
@@ -150,6 +152,27 @@ class World:
                 dups += 1
             seen[k] = seen.get(k, 0) + 1
         return dups
+
+    def transient_duplicate_effects(self) -> int:
+        """Duplicates that were live at the same time but undone by the end of the episode.
+
+        A copy undone *before* its replacement executed (compensate-then-retry) never
+        coexisted with it, so it doesn't count.
+        """
+        events: Dict[Tuple[str, str], List[Tuple[int, int]]] = {}
+        for e in self.effects:
+            k = (e.kind, e.dedupe_key)
+            events.setdefault(k, []).append((e.seq, 1))
+            if e.compensated_seq is not None:
+                events[k].append((e.compensated_seq, -1))
+        total = 0
+        for evs in events.values():
+            live = peak = 0
+            for _, d in sorted(evs):
+                live += d
+                peak = max(peak, live)
+            total += max(0, peak - 1) - max(0, live - 1)
+        return total
 
     def compensated_effects(self) -> int:
         return sum(1 for e in self.effects if e.compensated)

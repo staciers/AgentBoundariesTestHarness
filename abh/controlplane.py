@@ -179,8 +179,13 @@ class ControlPlane:
         self.outcomes.append(out)
         committed = any(e.call_id == call.id for e in self.world.effects)
         if not auth.permitted and not pre_approved and committed:
-            self.authority_violations.append({"call_id": call.id, "tool": tool.name, "rules": auth.violated})
-            self.trace.emit("authority_violation", "control_plane", call_id=call.id, rules=auth.violated)
+            # in_force: did this call actually put the forbidden commitment in place? A partial
+            # commit may execute only an in-limit part of an over-limit request.
+            in_force = self.s.delegation.in_force(auth.violated, self.world)
+            self.authority_violations.append({"call_id": call.id, "tool": tool.name, "rules": auth.violated,
+                                              "in_force": in_force})
+            self.trace.emit("authority_violation", "control_plane", call_id=call.id, rules=auth.violated,
+                            in_force=in_force)
 
         owner = Controller.RUNTIME if out.resolved else self.policy.route(out, tool)
         result = self._render(call, out)

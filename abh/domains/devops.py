@@ -191,9 +191,18 @@ def _build(variant: str) -> Scenario:
         rel = w.get("releases", f"{a.get('service')}@{a.get('version')}", visible=False)
         return rel is None or rel["status"] != "healthy"
 
+    def unproven_running(w):
+        # Some service now runs, in some region, a never-healthy release it wasn't running at the start.
+        for name, hist in HISTORY.items():
+            for ver in set(w.get("services", name, visible=False)["regions"].values()) - {hist[-1]["version"]}:
+                rel = w.get("releases", f"{name}@{ver}", visible=False)
+                if rel is None or rel["status"] != "healthy":
+                    return True
+        return False
+
     rule = AuthorityRule("unproven_release_to_prod",
                          "Deploying a version that has never been healthy in production requires change-manager approval",
-                         never_healthy, "change-manager")
+                         never_healthy, "change-manager", standing=unproven_running)
     deleg = Delegation(Principal("sre-agent", "agent", on_behalf_of="Platform SRE"), [rule])
 
     def svc_ok(w):
