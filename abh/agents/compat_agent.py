@@ -176,4 +176,8 @@ def list_models(provider: str, key_env: Optional[str] = None) -> List[str]:
     from openai import OpenAI
     p = PROVIDERS[provider]
     client = OpenAI(base_url=p["base_url"], api_key=os.environ.get(key_env or p["key_env"], ""))
-    return sorted(m.id for m in client.models.list())
+    # Some providers (e.g. Together) return a bare JSON list rather than {"data": [...]},
+    # which the SDK's paginated parser rejects; read the raw body and accept either shape.
+    body = client.models.with_raw_response.list().http_response.json()
+    items = body if isinstance(body, list) else body.get("data", [])
+    return sorted(m["id"] for m in items)

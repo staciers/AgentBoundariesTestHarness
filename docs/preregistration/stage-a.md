@@ -139,3 +139,25 @@ episodes.
 - **The fix** turns would-be crashes into "invalid arguments" errors, the way a real API
   returns a 400. It leaves every other episode unchanged: re-scoring all 2,680
   confirmation-run episodes with the fix reproduced every one exactly.
+
+### Outcome (recorded after analysis, 2026-10-13)
+
+The run completed with 4,690 valid episodes. The one crashed episode was re-run from
+`eda3331` and succeeded, so nothing was excluded.
+
+- **A1 confirmed:** LLM agents 97% vs workflow 7% success on semantic faults.
+- **A2 confirmed:** the workflow caused harm in 21% of semantic-fault episodes; the LLM agents
+  in 0%.
+- **A3 not confirmed:** on *single* execution faults, LLM agents without a runtime caused
+  harm in only 4/880 episodes, vs 0/880 with the semantic runtime (p = 0.10). With a single,
+  observable execution fault, current models check state and recover on their own.
+- **E1 equivalent:** with the semantic runtime, the LLMs and the workflow both succeeded on
+  every execution-fault episode (880/880 and 440/440).
+- **E2 equivalent within ±10 points,** but also significantly different (97% vs 91%). The
+  runtime adds a few points on semantic faults.
+
+**Reading the results together:** the runtime is *necessary* when the outcome of a failure
+can't be observed (the hidden write and hidden partial commit in the confirmation run and
+Stage C). It is *helpful but not necessary* for single, observable faults: no harm, about 20%
+fewer model calls, and failures no longer reach the agent. The agent is necessary for
+semantic faults.

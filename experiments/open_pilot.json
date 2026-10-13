@@ -9,13 +9,13 @@
   "workers": 4,
   "keep_traces": true,
   "name": "open-pilot",
-  "_comment": "Pilot for open-weight models on Together, mirroring the Stage A pilot cells. BEFORE RUNNING: verify the model IDs with `python -m abh models together` and the prices against together.ai/pricing (both are unverified best guesses as of 2026-10-13). Strong/weak pairs: DeepSeek V4 Pro/Flash, GLM-5.3/5.3-Flash.",
+  "_comment": "Pilot for open-weight models on Together, mirroring the Stage A pilot cells. Model IDs verified with `python -m abh models together` and prices against together.ai/pricing on 2026-10-13. Dated DeepSeek snapshots (V4 Pro 0813, V4 Flash 0731) and the full-precision GLM listings are used for reproducibility. Strong/weak pairs: DeepSeek V4 Pro/Flash, GLM-5.3/5.3-Flash.",
   "agents": [
     {
       "type": "compat",
       "provider": "together",
-      "model": "deepseek-ai/DeepSeek-V4-Pro",
-      "alias": "deepseek-v4-pro",
+      "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "alias": "deepseek-v4-pro-0813",
       "effort": "high",
       "input_price": 1.32,
       "output_price": 3.96,
@@ -24,11 +24,12 @@
     {
       "type": "compat",
       "provider": "together",
-      "model": "deepseek-ai/DeepSeek-V4-Flash",
-      "alias": "deepseek-v4-flash",
+      "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "alias": "deepseek-v4-flash-0731",
       "effort": "high",
       "input_price": 0.14,
-      "output_price": 0.28
+      "output_price": 0.28,
+      "cache_read_price": 0.03
     },
     {
       "type": "compat",
@@ -47,7 +48,8 @@
       "alias": "glm-5.3-flash",
       "effort": "high",
       "input_price": 0.15,
-      "output_price": 0.5
+      "output_price": 0.5,
+      "cache_read_price": 0.03
     }
   ],
   "seeds": {

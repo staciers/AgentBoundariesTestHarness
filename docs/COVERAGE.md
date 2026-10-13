@@ -11,8 +11,8 @@ Legend: ✅ covered · 🟡 partial · ❌ not yet
 
 | | Question | Harness | Scripted | LLM | Gap |
 |---|---|---|---|---|---|
-| RQ1 | Failure ownership by failure class | ✅ | ✅ all 12 faults | 🟡 3 of 12 faults, compound only | single-fault matrix with LLMs (Stage A) |
-| RQ2 | Recovery composition as models improve | ✅ runtime is an independent factor | ✅ `runtime_factorial` | 🟡 P1 vs P6; keys ablation; 2 tiers × 2 families | runtime factorial with LLMs (`naive_retry`, P1+`semantic`); top tier (Stage A, C) |
+| RQ1 | Failure ownership by failure class | ✅ | ✅ all 12 faults | ✅ all 12 faults (Stage A) | single-fault matrix with LLMs (Stage A) |
+| RQ2 | Recovery composition as models improve | ✅ runtime is an independent factor | ✅ `runtime_factorial` | ✅ runtime × model on single faults (Stage A), compound faults (confirm), frontier (Stage C) | runtime factorial with LLMs (`naive_retry`, P1+`semantic`); top tier (Stage A, C) |
 | RQ3 | When is human intervention necessary? | ✅ | ✅ | ❌ no `ambiguous`/`authority` variants run with LLMs | Stage B |
 | RQ4 | Autonomy vs. risk at fixed risk | ✅ P3/P6 threshold sweeps | ✅ | ❌ | Stage B |
 | RQ5 | Cost of oversight | 🟡 simulated human, uncalibrated | ✅ | 🟡 model cost/latency only; no human cost | Stage B, plus a human calibration pilot |
@@ -22,10 +22,10 @@ Legend: ✅ covered · 🟡 partial · ❌ not yet
 | | Hypothesis | LLM evidence | Next |
 |---|---|---|---|
 | H1 | Runtime beats model recovery on execution failures | ✅ **confirmed** (C1: 70% harm without keys vs 0% under P6; 4 models, 30 seeds), for 3 execution faults | extend to all execution faults (Stage A) |
-| H2 | Agent beats deterministic recovery on semantic failures | ❌ no semantic faults run with LLMs | **Stage A ready**: `experiments/stage_a.json`, pre-registration draft `docs/preregistration/stage-a.md`; pilot first |
+| H2 | Agent beats deterministic recovery on semantic failures | ✅ **confirmed (Stage A):** LLM agents 97% vs workflow 7% success; the workflow causes harm (21%), the agents don't. Also holds at the frontier (Stage C, G5) | harder semantic scenarios to separate model tiers (current ones are near ceiling) |
 | H3 | Humans add most value for authority / consequential ambiguity | ❌ | Stage B |
 | H4 | Hybrid (P6) dominates P1–P5 on risk–coverage | ❌ only P1 vs P6 | Stage B |
-| H5 | Scaling helps semantic recovery, not execution ambiguity | 🟡 **C2 confirmed**: stronger models leave less end-state harm (32% vs 75%). **E1 not equivalent**: stronger models also cause somewhat less harm (64% vs 76%), so "doesn't prevent" holds only in the weaker form "doesn't come close to preventing". No top tier yet | Stage C (frontier tier) |
+| H5 | Scaling helps semantic recovery, not execution ambiguity | ✅ **frontier tier tested (Stage C)**. Scale does *not* remove execution ambiguity: 78% harm without keys (G2). Scale doesn't reliably improve recovery either: G3 was refuted, with Fable 5.1 leaving lasting damage in 96% of episodes (exploratory: confident misreading of evidence). Semantic recovery is at ceiling for the frontier (100%, G5) | larger-n mechanism study of post-retry verification |
 | H6 | Handling failures below the model saves tokens/calls | ✅ strong for all 4 models (p<10⁻⁷) | none needed |
 | H7 | Execution-aware escalation saves human attention without losing recall | ❌ | Stage B |
 | new | Offering idempotency keys can *increase* harm under a hidden partial commit | ✅ **confirmed** (C3: 30% vs 1%), larger for the OpenAI models (C4: 47% vs 13%), and driven by the "at most once" wording (C5: 30% vs 3% with caveated wording) | key-reuse with different parameters (harness item 6); `platform` domain |
