@@ -23,6 +23,14 @@ from .policies import POLICIES
 
 
 def _agent(s: str):
+    if s.startswith("{"):  # full JSON agent spec, e.g. with prices
+        return json.loads(s)
+    if s.startswith("compat:"):  # compat:<provider>:<model>[:effort]
+        parts = s.split(":")
+        d = {"type": "compat", "provider": parts[1], "model": parts[2]}
+        if len(parts) > 3:
+            d["effort"] = parts[3]
+        return d
     if s.startswith("scripted"):
         return {"type": "scripted", "profile": s.split(":", 1)[1] if ":" in s else "careful"}
     if s.startswith("anthropic"):
@@ -42,7 +50,7 @@ def _agent(s: str):
             d["effort"] = parts[2]
         return d
     raise SystemExit(f"unknown agent {s!r} (use scripted[:profile], anthropic[:model[:effort]], "
-                     "or openai[:model[:effort]])")
+                     "openai[:model[:effort]], compat:<provider>:<model>[:effort], or a JSON spec)")
 
 
 def main(argv=None) -> int:
@@ -56,6 +64,8 @@ def main(argv=None) -> int:
     r.add_argument("--dry-run", action="store_true")
     rp = sub.add_parser("report")
     rp.add_argument("run_dir")
+    mp = sub.add_parser("models", help="list model IDs an OpenAI-compatible provider serves")
+    mp.add_argument("provider")
     sub.add_parser("definitions", help="regenerate docs/DEFINITIONS.md from abh/definitions.py")
     rs = sub.add_parser("rescore", help="re-score a run's traces under the current evaluator (no model calls)")
     rs.add_argument("run_dir")
@@ -91,6 +101,10 @@ def main(argv=None) -> int:
     if a.cmd == "report":
         eps = [x for x in load_episodes(f"{a.run_dir}/episodes.jsonl") if "error" not in x]
         print(write_report(eps, a.run_dir))
+        return 0
+    if a.cmd == "models":
+        from .agents.compat_agent import list_models
+        print("\n".join(list_models(a.provider)))
         return 0
     if a.cmd == "definitions":
         from .definitions import write_definitions_md

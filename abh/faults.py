@@ -5,6 +5,12 @@ observed by any control configuration. Each injected fault is recorded with its
 ground-truth effect (did the side effect commit?) so the evaluator can attribute
 who ultimately resolved it (RQ1: failure ownership).
 
+Rate-based faults: a spec with ``rate`` set fails each invocation of its target with that
+probability instead of at scheduled calls (Phase IV: failure frequencies). Sampling is a
+hash of (episode seed, spec, tool, call number), so it's reproducible and independent of
+how other tools' calls interleave. Targets ``@writes``, ``@reads`` and ``@any`` expand to
+every matching tool. Only execution faults can be rate-based.
+
 Compound faults: several specs may be active on the same invocation. They compose in
 the order a real request experiences them (see ``FaultInjector.invoke``). At most one
 *pre-execution* fault and at most one *response* fault may overlap on a call;
@@ -13,6 +19,7 @@ the order a real request experiences them (see ``FaultInjector.invoke``). At mos
 from __future__ import annotations
 
 import copy
+import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
@@ -71,6 +78,14 @@ class FaultSpec:
     on_call: int = 1        # trigger on the nth invocation of the target tool
     times: int = 1          # number of consecutive invocations affected
     params: Dict[str, Any] = field(default_factory=dict)
+    rate: Optional[float] = None  # if set: fail each invocation with this probability instead
+
+    @property
+    def label(self) -> str:
+        if self.rate is None:
+            return self.type.value
+        tgt = "" if self.target == self.type.default_target else f"[{self.target}]"
+        return f"{self.type.value}{tgt}~{self.rate:g}"
 
     @classmethod
     def parse(cls, d) -> "FaultSpec":
@@ -79,14 +94,24 @@ class FaultSpec:
         if isinstance(d, str):
             d = {"type": d}
         ft = FaultType(d["type"])
+        rate = d.get("rate")
+        if rate is not None:
+            rate = float(rate)
+            if not 0.0 <= rate <= 1.0:
+                raise ValueError(f"rate must be in [0, 1], got {rate}")
+            if ft.failure_class != FailureClass.EXECUTION:
+                raise ValueError(f"{ft.value} is a semantic fault; only execution faults can be rate-based")
         return cls(type=ft, target=d.get("target") or ft.default_target,
                    on_call=int(d.get("on_call", 1)),
                    times=int(d.get("times", 10 ** 6 if ft == FaultType.PERSISTENT_UNAVAILABLE else 1)),
-                   params=dict(d.get("params", {})))
+                   params=dict(d.get("params", {})), rate=rate)
 
     def to_dict(self) -> dict:
-        return {"type": self.type.value, "target": self.target, "on_call": self.on_call,
-                "times": self.times, "params": self.params}
+        d = {"type": self.type.value, "target": self.target, "on_call": self.on_call,
+             "times": self.times, "params": self.params}
+        if self.rate is not None:  # only rate specs carry it, so existing episode keys are unchanged
+            d["rate"] = self.rate
+        return d
 
 
 @dataclass
@@ -117,7 +142,19 @@ class InjectedFault:
 
 
 def _overlap(a: "FaultSpec", b: "FaultSpec") -> bool:
+    if a.rate is not None or b.rate is not None:
+        return False  # rate specs are reconciled per call at injection time (see FaultInjector._active)
     return a.target == b.target and a.on_call < b.on_call + b.times and b.on_call < a.on_call + a.times
+
+
+def conflicts(a: FaultType, b: FaultType) -> bool:
+    """Can these two faults not both apply to one request?"""
+    if a == b:
+        return True
+    if (a in PRE_EXECUTION and b in PRE_EXECUTION) or (a in RESPONSE and b in RESPONSE):
+        return True
+    pre, other = (a, b) if a in PRE_EXECUTION else (b, a) if b in PRE_EXECUTION else (None, None)
+    return pre is not None and other != FaultType.PRECONDITION_CHANGED
 
 
 def validate_compound(specs: List["FaultSpec"]) -> None:
@@ -146,16 +183,28 @@ class MalformedPayload(dict):
 
 class FaultInjector:
     def __init__(self, specs: List[FaultSpec], semantic_defs: Dict[FaultType, SemanticFaultDef],
-                 defaults: Optional[Dict[str, Any]] = None):
+                 defaults: Optional[Dict[str, Any]] = None, seed: int = 0):
         self.specs = specs
+        self.seed = seed
         self.semantic_defs = semantic_defs
         self.defaults = {"delay_ms": 6000, "retry_after_ms": 2000, "timeout_ms": 30000}
         self.defaults.update(defaults or {})
         self._counts: Dict[str, int] = {}
         self.injected: List[InjectedFault] = []
 
+    def _draw(self, i: int, tool: str, n: int) -> float:
+        h = hashlib.sha256(f"{self.seed}:{i}:{tool}:{n}".encode()).digest()
+        return int.from_bytes(h[:8], "big") / 2 ** 64
+
     def _active(self, tool: str, n: int) -> List[FaultSpec]:
-        return [s for s in self.specs if s.target == tool and s.on_call <= n < s.on_call + s.times]
+        active = [s for s in self.specs if s.rate is None and s.target == tool and s.on_call <= n < s.on_call + s.times]
+        for i, s in enumerate(self.specs):
+            if s.rate is None or s.target != tool or self._draw(i, tool, n) >= s.rate:
+                continue
+            # Several rate specs can fire on one call; keep the earlier ones when they conflict.
+            if not any(conflicts(s.type, a.type) for a in active):
+                active.append(s)
+        return active
 
     def _record(self, spec: FaultSpec, tool: str, ctx: InvocationContext, world: World) -> InjectedFault:
         f = InjectedFault(f"fault{len(self.injected) + 1}", spec.type, tool, ctx.call_id,

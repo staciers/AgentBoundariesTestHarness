@@ -601,6 +601,105 @@ class TestPilotFixes(unittest.TestCase):
         self.assertEqual(st["outcome"], "success")
 
 
+class TestCompatAdapter(unittest.TestCase):
+    """Offline: the OpenAI-compatible adapter against a stubbed client."""
+
+    def test_episode_through_stub(self):
+        import json as _json
+        from types import SimpleNamespace as NS
+        from unittest import mock
+        from abh.agents.compat_agent import CompatAgent
+        script = [[("get_service_status", {"service": "checkout-api", "confidence": 0.95})],
+                  [("list_deployments", {"service": "checkout-api", "confidence": 0.95})],
+                  [("rollback", {"service": "checkout-api", "version": "v2.3.0", "confidence": 0.9})],
+                  [("create_incident", {"title": "t", "severity": "SEV2", "service": "checkout-api",
+                                        "summary": "s", "confidence": 0.9})], None]
+        calls = []
+
+        def fake(**kw):
+            i = len(calls)
+            calls.append([m["role"] for m in kw["messages"]])  # snapshot: the list keeps growing
+            step = script[i]
+            tcs = None if step is None else [
+                NS(id=f"c{i}", type="function", function=NS(name=n, arguments=_json.dumps(a)),
+                   model_dump=lambda: {}) for n, a in step]
+            msg = NS(content="" if step else "done", tool_calls=tcs, reasoning_content=None)
+            return NS(choices=[NS(message=msg, finish_reason="tool_calls" if step else "stop")],
+                      usage=NS(prompt_tokens=1000, completion_tokens=100, prompt_tokens_details=NS(cached_tokens=0)),
+                      model="served-model-rev", system_fingerprint=None)
+
+        orig = CompatAgent.start
+
+        def start(self, brief, seed):
+            orig(self, brief, seed)
+            self.client.chat.completions.create = fake
+
+        with mock.patch.object(CompatAgent, "start", start), mock.patch.dict(os.environ, {"TOGETHER_API_KEY": "x"}):
+            r = run_episode(EpisodeConfig("devops/base", "P6", {"type": "compat", "provider": "together",
+                                                                 "model": "org/Model-X", "input_price": 1.0,
+                                                                 "output_price": 2.0}))
+        self.assertEqual(r["outcome"], "success")
+        self.assertEqual(r["agent"], "together:Model-X")
+        self.assertAlmostEqual(r["model_cost_usd"], 5 * (1000 * 1.0 + 100 * 2.0) / 1e6)
+        self.assertEqual(calls[1][-1], "tool")
+        self.assertEqual(calls[1][-2], "assistant")
+
+
+class TestRateFaults(unittest.TestCase):
+    def rate_spec(self, **kw):
+        return FaultSpec.parse(dict({"type": "transient_failure", "target": "@writes"}, **kw))
+
+    def test_parse_and_label(self):
+        s = self.rate_spec(rate=0.1)
+        self.assertEqual(s.label, "transient_failure[@writes]~0.1")
+        self.assertEqual(s.to_dict()["rate"], 0.1)
+        self.assertNotIn("rate", FaultSpec.parse("transient_failure").to_dict())  # old keys unchanged
+        with self.assertRaises(ValueError):
+            FaultSpec.parse({"type": "precondition_changed", "rate": 0.1})
+        with self.assertRaises(ValueError):
+            FaultSpec.parse({"type": "transient_failure", "rate": 1.5})
+
+    def test_targets_expand(self):
+        sc = make_scenario("travel/base")
+        writes = sc.resolve_targets("@writes", FaultType.TRANSIENT_FAILURE)
+        self.assertIn("book_trip", writes)
+        self.assertNotIn("search_flights", writes)
+        self.assertEqual(sc.resolve_targets("@writes", FaultType.PARTIAL_MUTATION), ["book_trip"])
+        self.assertIn("search_flights", sc.resolve_targets("@reads", FaultType.TIMEOUT_BEFORE_EXECUTION))
+
+    def injector(self, specs, seed=0):
+        return FaultInjector([FaultSpec.parse(s) for s in specs], {}, seed=seed)
+
+    def test_frequency_and_reproducibility(self):
+        inj = self.injector([{"type": "transient_failure", "target": "t", "rate": 0.2}], seed=7)
+        hits = [bool(inj._active("t", n)) for n in range(1, 5001)]
+        self.assertAlmostEqual(sum(hits) / len(hits), 0.2, delta=0.02)
+        again = self.injector([{"type": "transient_failure", "target": "t", "rate": 0.2}], seed=7)
+        self.assertEqual(hits, [bool(again._active("t", n)) for n in range(1, 5001)])
+        other = self.injector([{"type": "transient_failure", "target": "t", "rate": 0.2}], seed=8)
+        self.assertNotEqual(hits, [bool(other._active("t", n)) for n in range(1, 5001)])
+        self.assertFalse(any(self.injector([{"type": "transient_failure", "target": "t", "rate": 0.0}])
+                             ._active("t", n) for n in range(1, 200)))
+
+    def test_conflicting_rate_specs_keep_first(self):
+        inj = self.injector([{"type": "timeout_after_execution", "target": "t", "rate": 1.0},
+                             {"type": "malformed_response", "target": "t", "rate": 1.0},
+                             {"type": "delayed_visibility", "target": "t", "rate": 1.0}])
+        self.assertEqual([s.type.value for s in inj._active("t", 1)],
+                         ["timeout_after_execution", "delayed_visibility"])
+
+    def test_episode_with_rate_profile(self):
+        faults = [{"type": "transient_failure", "target": "@writes", "rate": 0.5},
+                  {"type": "timeout_after_execution", "target": "@writes", "rate": 0.3}]
+        fs = [FaultSpec.parse(f) for f in faults]
+        cfg = lambda rt, seed: EpisodeConfig("commerce/base", {"name": "P1", "runtime": rt}, "scripted",
+                                             [f.to_dict() for f in fs], "x", seed=seed)
+        a, b = run_episode(cfg("semantic", 3)), run_episode(cfg("semantic", 3))
+        self.assertEqual(a["faults_injected"], b["faults_injected"])
+        self.assertGreater(len(a["faults_injected"]), 0)
+        self.assertEqual(a["duplicate_effects"], 0)  # the semantic runtime absorbs them
+
+
 class TestDeterminismAndRunner(unittest.TestCase):
     def test_deterministic(self):
         a = ep("commerce/ambiguous", "P5", "careful", ["timeout_after_execution"], seed=3)

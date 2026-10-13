@@ -1,0 +1,78 @@
+{
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "devops/base",
+    "scheduling/base",
+    "platform/base"
+  ],
+  "workers": 4,
+  "keep_traces": true,
+  "name": "open-pilot",
+  "_comment": "Pilot for open-weight models on Together, mirroring the Stage A pilot cells. BEFORE RUNNING: verify the model IDs with `python -m abh models together` and the prices against together.ai/pricing (both are unverified best guesses as of 2026-10-13). Strong/weak pairs: DeepSeek V4 Pro/Flash, GLM-5.3/5.3-Flash.",
+  "agents": [
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4-Pro",
+      "alias": "deepseek-v4-pro",
+      "effort": "high",
+      "input_price": 1.32,
+      "output_price": 3.96,
+      "cache_read_price": 0.13
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4-Flash",
+      "alias": "deepseek-v4-flash",
+      "effort": "high",
+      "input_price": 0.14,
+      "output_price": 0.28
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3",
+      "alias": "glm-5.3",
+      "effort": "high",
+      "input_price": 1.4,
+      "output_price": 4.4,
+      "cache_read_price": 0.26
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5
+    }
+  ],
+  "seeds": {
+    "start": 900,
+    "count": 1
+  },
+  "fault_conditions": [
+    "none",
+    "precondition_changed",
+    "task_invalid_result",
+    "persistent_unavailable",
+    "timeout_before_execution",
+    "timeout_after_execution",
+    "transient_failure",
+    "rate_limited",
+    "malformed_response",
+    "partial_response",
+    "delayed_visibility",
+    "duplicate_execution",
+    "partial_mutation"
+  ],
+  "policies": [
+    {
+      "name": "P1",
+      "runtime": "semantic"
+    }
+  ]
+}

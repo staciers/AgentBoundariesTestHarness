@@ -127,6 +127,20 @@ class Scenario:
             return self.fault_targets.get(target[1:])
         return target
 
+    def resolve_targets(self, target: str, ft: FaultType) -> List[str]:
+        """Like resolve_target, but @writes / @reads / @any expand to every matching tool."""
+        if ft in self.unsupported_faults:
+            return []
+        groups = {"@writes": lambda t: not t.semantics.read_only, "@reads": lambda t: t.semantics.read_only,
+                  "@any": lambda t: True}
+        if target in groups:
+            tools = [t for t in self.tools if groups[target](t)]
+            if ft == FaultType.PARTIAL_MUTATION:
+                tools = [t for t in tools if t.semantics.multipart]
+            return [t.name for t in tools]
+        one = self.resolve_target(target, ft)
+        return [one] if one else []
+
     def supports(self, ft: FaultType) -> bool:
         return self.resolve_target(ft.default_target, ft) is not None
 

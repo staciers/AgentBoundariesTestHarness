@@ -77,4 +77,7 @@ def make_agent(spec) -> Agent:
     if kind == "openai":
         from .openai_agent import OpenAIAgent
         return OpenAIAgent(**spec)
+    if kind == "compat":
+        from .compat_agent import CompatAgent
+        return CompatAgent(**spec)
     raise ValueError(f"unknown agent type {kind!r}")

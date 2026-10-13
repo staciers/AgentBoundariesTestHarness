@@ -93,10 +93,10 @@ def expand(spec: Dict[str, Any]) -> Iterator[EpisodeConfig]:
     for sid in _scenarios(spec.get("scenarios")):
         sc = make_scenario(sid)
         for cond in _conditions(spec.get("fault_conditions", "single")):
-            resolved = [FaultSpec(f.type, sc.resolve_target(f.target, f.type), f.on_call, f.times, f.params)
-                        for f in cond]
-            if any(f.target is None for f in resolved):
+            if any(not sc.resolve_targets(f.target, f.type) for f in cond):
                 continue  # scenario lacks a tool for this fault
+            resolved = [FaultSpec(f.type, tool, f.on_call, f.times, f.params, f.rate)
+                        for f in cond for tool in sc.resolve_targets(f.target, f.type)]
             try:
                 validate_compound(resolved)
             except ValueError as e:  # a spec error, not a per-episode failure: stop before spending

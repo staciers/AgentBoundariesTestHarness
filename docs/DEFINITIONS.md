@@ -241,6 +241,9 @@ Prospectus §6. Phase determines how faults compose when several hit one call (s
 <a id="fault-precondition_changed"></a>
 **`fault-precondition_changed`**: World change, semantic. The world changes just before the call (sold out, quarantined release, slot taken); the service rejects it.
 
+<a id="fault-rate"></a>
+**`fault-rate`**: Rate-based condition, labelled `type[target]~p`. Every invocation of the target tool(s) fails with probability p, sampled reproducibly from the episode seed. `@writes`, `@reads` and `@any` apply it to every matching tool; several rate specs form a mixed profile. Execution faults only. Sweep p to study failure frequency (Phase IV).
+
 <a id="fault-task_invalid_result"></a>
 **`fault-task_invalid_result`**: Semantic. A valid-looking result that doesn't satisfy the task (wrong date, refurbished item, skipped attendee). Detectable by reading carefully.
 
@@ -334,6 +337,12 @@ Footnotes a report includes when they apply to its data. Values in braces are fi
 
 <a id="note-compound_faults"></a>
 **compound_faults**: Compound conditions (`a+b`) put several faults on one episode. Faults that hit the same call compose in phase order, a timeout masks whatever happened, and visibility lag counts from when the caller gets its answer. See [Compound faults](ARCHITECTURE.md#compound-faults).
+
+<a id="note-rate_faults"></a>
+**rate_faults**: Rate-based conditions ([fault-rate](#fault-rate)) inject a random number of faults per episode, so episodes in the same condition saw different numbers of faults. Compare across rate levels, and use `faults_injected` in `episodes.jsonl` for per-episode counts.
+
+<a id="note-open_weights_hosting"></a>
+**open_weights_hosting**: Open-weight models here are served by a hosted provider ({compat}). Providers can quantize models or change revisions without notice; every response's served model ID is recorded in the transcripts, so check them before comparing runs made at different times.
 
 <a id="note-ownership_heuristic"></a>
 **ownership_heuristic**: Failure ownership is heuristic. A fault counts as runtime-resolved when its call ended resolved after a runtime action, as human-resolved when escalated, and otherwise as agent-handled, whatever the agent then did.

@@ -31,7 +31,7 @@ class EpisodeConfig:
 
 
 def fault_label(faults: List[FaultSpec]) -> str:
-    return "+".join(f.type.value for f in faults) or "none"
+    return "+".join(f.label for f in faults) or "none"
 
 
 def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Agent] = None) -> Dict[str, Any]:
@@ -50,12 +50,12 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
     specs: List[FaultSpec] = []
     for f in cfg.faults:
         spec = FaultSpec.parse(f)
-        tool = scenario.resolve_target(spec.target, spec.type)
-        if tool is None:
+        tools = scenario.resolve_targets(spec.target, spec.type)
+        if not tools:
             raise ValueError(f"{scenario.id} does not support fault {spec.type.value}")
-        specs.append(FaultSpec(spec.type, tool, spec.on_call, spec.times, spec.params))
+        specs += [FaultSpec(spec.type, tool, spec.on_call, spec.times, spec.params, spec.rate) for tool in tools]
     validate_compound(specs)
-    injector = FaultInjector(specs, scenario.semantic_faults)
+    injector = FaultInjector(specs, scenario.semantic_faults, seed=cfg.seed)
     runtime = ReliabilityRuntime(rcfg, world, injector, trace)
     human = make_human(hcfg, scenario.oracle, random.Random(rng.random()))
     cp = ControlPlane(scenario, policy, runtime, human, world, trace, injector)

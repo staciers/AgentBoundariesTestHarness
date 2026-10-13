@@ -169,13 +169,19 @@ HEADLINE = ["n", "success", "end_state_success", "harm", "end_state_harm", "self
 SECTION_NOTES = {
     "top": ["scripted_not_evidence", "run_notes", "errored", "rescored"],
     "headline": ["harm_split", "unsplit", "coverage_ceiling", "gate_reliance", "small_samples", "synthetic_tokens",
-                 "never_in_force", "standing_edge", "expose_keys", "refusals", "cross_provider_tokens", "costs"],
+                 "never_in_force", "standing_edge", "expose_keys", "refusals", "cross_provider_tokens",
+                 "open_weights_hosting", "costs"],
     "runtime": ["synthetic_tokens", "cross_provider_tokens", "expose_keys"],
     "risk_coverage": ["coverage_ceiling", "small_samples"],
     "variant": ["ground_truth_oversight", "coverage_ceiling"],
-    "fault": ["compound_faults", "harm_split", "unsplit", "small_samples"],
+    "fault": ["compound_faults", "rate_faults", "harm_split", "unsplit", "small_samples"],
     "ownership": ["ownership_heuristic", "compound_faults"],
 }
+
+
+def _compat_providers() -> set:
+    from .agents.compat_agent import PROVIDERS
+    return set(PROVIDERS)
 
 
 def report_context(eps: List[dict], out_dir: str, groups: Sequence[List[dict]] = ()) -> Dict[str, Any]:
@@ -199,6 +205,8 @@ def report_context(eps: List[dict], out_dir: str, groups: Sequence[List[dict]] =
         "authority_violations": sum(e["authority_violations"] for e in eps),
         "has_hidden_keys": any("expose_keys=False" in e["policy"] for e in eps),
         "has_compound": any("+" in e["faults"] for e in eps),
+        "has_rate": any("~" in e["faults"] for e in eps),
+        "compat_providers": {str(e["agent"]).split(":")[0] for e in eps} & _compat_providers(),
         "faults_injected": sum(len(e["faults_injected"]) for e in eps),
         "interventions": sum(e["interventions"] for e in eps),
         "min_n": min_n, "half_width": 1.96 * math.sqrt(0.25 / min_n),

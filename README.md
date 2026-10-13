@@ -35,6 +35,10 @@ python3 -m abh list
 python3 -m abh episode travel/base --policy P1 --agent scripted:naive --fault timeout_after_execution
 ```
 
+For a failure *rate* instead of a scheduled fault, give `rate` in a spec, e.g.
+`{"type": "transient_failure", "target": "@writes", "rate": 0.1}`; see
+[`experiments/rate_sweep_scripted.json`](experiments/rate_sweep_scripted.json).
+
 To inject a compound fault, repeat `--fault`. Faults that hit the same call compose; see
 [Compound faults](docs/ARCHITECTURE.md#compound-faults).
 
@@ -103,7 +107,7 @@ prices are supplied.
 | Policies | `abh/policies.py` | P1–P6 and ORACLE; the runtime mode can be overridden per experiment |
 | Control plane | `abh/controlplane.py` | authority → gate → runtime → route; does the ground-truth bookkeeping |
 | Scenarios | `abh/domains/` | travel, commerce, devops, scheduling, platform (repo / CI / PR, the Paper 2 seed) × {base, ambiguous, authority} |
-| Agents | `abh/agents/` | `scripted` baseline plus `anthropic` and `openai` manual tool loops |
+| Agents | `abh/agents/` | `scripted` baseline (incl. the deterministic `workflow`), plus `anthropic`, `openai`, and `compat` (open-weight models via OpenAI-compatible Chat Completions: Together, Fireworks, DeepInfra, OpenRouter, DeepSeek, Z.ai) manual tool loops; `replay` re-scores traces |
 
 ### Policies
 

@@ -46,8 +46,8 @@ Legend: ✅ covered · 🟡 partial · ❌ not yet
 | Action types (read-only → irreversible) | ✅ present in all base scenarios | ✅ | 🟡 present, not yet analysed by action type |
 | Domains (5; `platform` added 2026-10-12) | ✅ | 🟡 `platform` swept with scripted agents only | 🟡 `base` variants of the original 4 only |
 | Variants (`ambiguous`, `authority`) | ✅ | ✅ | ❌ |
-| Model families and capability levels | ✅ Anthropic, OpenAI | n/a | 🟡 2 families × 2 tiers; no top tier, no third family |
-| Failure *frequencies* (Phase IV) | ❌ faults are scheduled at a call, not injected at a rate | ❌ | ❌ |
+| Model families and capability levels | ✅ Anthropic, OpenAI, open weights via `compat` | n/a | 🟡 2 families × 2 tiers; frontier tier set up (Stage C, piloted); open weights adapter built, `experiments/open_pilot.json` ready (needs a provider key) |
+| Failure *frequencies* (Phase IV) | ✅ rate-based faults (`rate`, `@writes`/`@reads`/`@any`, mixed profiles) | ✅ `experiments/rate_sweep_scripted.json` | ❌ |
 | Human attention as a constrained resource | 🟡 per-episode budget and fatigue; no shared reviewer pool | 🟡 | ❌ |
 | Human parameters calibrated to people | 🟡 interactive mode exists | ❌ | ❌ |
 
@@ -66,14 +66,16 @@ seeds. Gated policies run longer episodes, so Stage B includes +30%. Price exact
 
 Harness work these stages don't cover:
 
-1. **Rate-based fault injection**, for Phase IV's failure frequencies.
+1. ~~Rate-based fault injection~~ **done** (2026-10-13): `rate` on execution-fault specs. Next: a
+   rate sweep with LLM agents.
 2. **A shared reviewer pool** across concurrent episodes. Needed for RQ5 at scale, and the
    seed of Paper 5.
 3. **A small interactive pilot with real people**, to calibrate human latency and error rates
    before making claims about human cost.
 4. **More scenarios.** LLM results currently generalise to four tasks. `platform` (repo / CI /
    PR) is built and scripted-validated: 3 variants, all 12 faults.
-5. **Optionally, a third model family.**
+5. **A third model family:** the open-weights adapter (`compat`) is built for hosted DeepSeek
+   V4 Pro/Flash and GLM-5.3/5.3-Flash on Together. It needs a provider key and verified model IDs.
 6. **Idempotency keys reused with different parameters.** Our services return the stored result
    for a reused key even when the request differs. Real APIs such as Stripe reject that.
    `platform` showed the hazard: a CI re-run that reused a key got the stale run from the old

@@ -196,6 +196,11 @@ TERMS: List[Term] = [
                                                  "an alternative route is needed."),
     _T("fault-precondition_changed", "faults", "World change, semantic. The world changes just before the call "
                                                "(sold out, quarantined release, slot taken); the service rejects it."),
+    _T("fault-rate", "faults", "Rate-based condition, labelled `type[target]~p`. Every invocation of the target "
+                               "tool(s) fails with probability p, sampled reproducibly from the episode seed. "
+                               "`@writes`, `@reads` and `@any` apply it to every matching tool; several rate specs "
+                               "form a mixed profile. Execution faults only. Sweep p to study failure frequency "
+                               "(Phase IV)."),
     _T("fault-task_invalid_result", "faults", "Semantic. A valid-looking result that doesn't satisfy the task (wrong "
                                               "date, refurbished item, skipped attendee). Detectable by reading "
                                               "carefully."),
@@ -295,6 +300,17 @@ NOTES: List[Note] = [
          "answer. See [Compound faults]({arch}#compound-faults).",
          lambda c: c["has_compound"],
          lambda c: {"arch": c["arch_href"]}),
+    Note("rate_faults",
+         "Rate-based conditions ({d:fault-rate}) inject a random number of faults per episode, so episodes in "
+         "the same condition saw different numbers of faults. Compare across rate levels, and use "
+         "`faults_injected` in `episodes.jsonl` for per-episode counts.",
+         lambda c: c["has_rate"]),
+    Note("open_weights_hosting",
+         "Open-weight models here are served by a hosted provider ({compat}). Providers can quantize models or "
+         "change revisions without notice; every response's served model ID is recorded in the transcripts, so "
+         "check them before comparing runs made at different times.",
+         lambda c: bool(c["compat_providers"]),
+         lambda c: {"compat": ", ".join(sorted(c["compat_providers"]))}),
     Note("ownership_heuristic",
          "Failure ownership is heuristic. A fault counts as runtime-resolved when its call ended resolved after a "
          "runtime action, as human-resolved when escalated, and otherwise as agent-handled, whatever the agent then "
