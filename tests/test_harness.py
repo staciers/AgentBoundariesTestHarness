@@ -700,6 +700,34 @@ class TestRateFaults(unittest.TestCase):
         self.assertEqual(a["duplicate_effects"], 0)  # the semantic runtime absorbs them
 
 
+class TestMalformedArguments(unittest.TestCase):
+    """Stage A finding: malformed tool arguments crashed the harness instead of erroring to the model."""
+
+    def replay(self, args):
+        from abh.agents.replay import ReplayAgent
+        trace = [{"event": "agent_call", "call_id": "c0", "tool": "create_branch", "t_ms": 1000, "args": {"branch": "fix"}},
+                 {"event": "agent_call", "call_id": "c1", "tool": "commit_changes", "t_ms": 2000, "args": args},
+                 {"event": "episode_end", "termination": "final", "final": "x", "t_ms": 3000}]
+        return run_episode(EpisodeConfig("platform/base", {"name": "P1", "runtime": "semantic"}, "scripted"),
+                           agent=ReplayAgent(trace))
+
+    def test_malformed_files_become_an_error_result(self):
+        for files in (json.dumps([{"path": "src/money.py", "content": "x"}]), ["src/money.py"]):
+            r = self.replay({"branch": "fix", "message": "m", "files": files})
+            self.assertEqual(r["outcome"], "fail_safe")
+            self.assertTrue(any(e["event"] == "invalid_arguments" for e in r["trace"]))
+
+    def test_handler_type_errors_become_invalid_request(self):
+        from abh.tools import InvalidRequest, InvocationContext
+        sc = make_scenario("platform/base")
+        w = World(SimClock())
+        sc.build_world(w)
+        tools = {t.name: t for t in sc.tools}
+        tools["create_branch"].execute(w, {"branch": "fix"}, InvocationContext("c0"))
+        with self.assertRaises(InvalidRequest):
+            tools["commit_changes"].execute(w, {"branch": "fix", "message": "m", "files": ["x"]}, InvocationContext("c1"))
+
+
 class TestDeterminismAndRunner(unittest.TestCase):
     def test_deterministic(self):
         a = ep("commerce/ambiguous", "P5", "careful", ["timeout_after_execution"], seed=3)

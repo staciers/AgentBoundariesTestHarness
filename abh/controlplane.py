@@ -159,8 +159,15 @@ class ControlPlane:
         if not self.policy.expose_keys and "idempotency_key" in args:
             args.pop("idempotency_key")  # not offered to the agent, so not honoured
             self.trace.emit("agent_key_ignored", "control_plane", call_id=call.id)
-        auth = self.s.delegation.check(tool.name, args, self.world)
-        needs_human, _ = self.oracle.needs_human(tool.name, args, self.world)
+        try:
+            auth = self.s.delegation.check(tool.name, args, self.world)
+            needs_human, _ = self.oracle.needs_human(tool.name, args, self.world)
+        except (KeyError, TypeError, ValueError, AttributeError, IndexError) as e:
+            # Arguments too malformed to evaluate. Reject before execution as an invalid request;
+            # only calls that would otherwise have crashed the harness reach this branch.
+            msg = f"Error (invalid_request): invalid arguments for {tool.name}: {type(e).__name__}: {e}"
+            self.trace.emit("invalid_arguments", "control_plane", call_id=call.id, tool=tool.name, error=str(e))
+            return ToolResult(call.id, msg, True, {"kind": "error", "error_kind": "invalid_request"})
         pre_approved = _canon(tool.name, args) in self.approved
         approval_note = None
 

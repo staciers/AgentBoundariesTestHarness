@@ -120,7 +120,14 @@ class ToolSpec:
             if prior is not None:
                 return dict(prior["response"])
         clean = {k: v for k, v in args.items() if k != "idempotency_key"}
-        resp = self.handler(world, clean, ctx)
+        try:
+            resp = self.handler(world, clean, ctx)
+        except ToolError:
+            raise
+        except (KeyError, TypeError, ValueError, AttributeError, IndexError) as e:
+            # A malformed call (wrong argument shape) is the caller's error, as a 400 from a real API,
+            # not a harness crash. Only calls that would otherwise have crashed reach this branch.
+            raise InvalidRequest(f"Invalid arguments for {self.name}: {type(e).__name__}: {e}")
         if key:
             world.put(f"_idem:{self.name}", key, {"response": resp})
         return resp

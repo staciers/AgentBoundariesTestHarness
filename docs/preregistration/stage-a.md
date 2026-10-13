@@ -125,4 +125,17 @@ No change to hypotheses, tests or design.
 
 ### Deviations
 
-_None yet._
+**2026-10-13 — harness defect found during the run (recorded before any affected outcome was seen).**
+Malformed tool arguments crashed the harness instead of returning an error to the model. In
+the `platform` domain, a `files` argument sent as a JSON string or a list of strings crashed
+the approver check. Stage A had one such episode (`9e3cedef96cf4c9c`) after about 1,100
+episodes.
+
+- **Primary analysis:** unchanged, per the exclusion rule. Crashed episodes are re-run from
+  the registered commit, and any that crash again are excluded and counted.
+- **Added sensitivity analysis** (decided before seeing the affected outcomes): excluded
+  episodes are re-run with the fix, commit to be recorded here. Results are reported with
+  and without them.
+- **The fix** turns would-be crashes into "invalid arguments" errors, the way a real API
+  returns a 400. It leaves every other episode unchanged: re-scoring all 2,680
+  confirmation-run episodes with the fix reproduced every one exactly.
