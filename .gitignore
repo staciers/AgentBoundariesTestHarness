@@ -1,0 +1,8 @@
+# Run outputs are local by default (large, re-scorable). Un-ignore runs that are
+# evidence for the paper, one line each: `runs/*` (not `runs/`) lets them be re-included.
+runs/*
+!runs/compound-confirm-20261012-112744/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/

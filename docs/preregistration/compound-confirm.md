@@ -98,4 +98,14 @@ margin, unstratified. There are three possible verdicts:
 
 ### Deviations
 
-_None yet._
+None. The run completed on 2026-10-12. One episode was re-run under the exclusion rule
+above, from a worktree at `eb0f8f2`, and the analysis script was run unchanged from that
+commit. See the run's `NOTES.md` and `confirmatory.md` (`runs/compound-confirm-20261012-112744/`).
+
+### Outcome (recorded after analysis)
+
+- **C1–C5:** all confirmed (Holm-adjusted p < 10⁻¹³, odds ratios in the predicted direction).
+- **E1:** verdict **different**, not equivalent. Stronger models had 64% any-harm vs 76% for
+  weaker ones (p = 0.005). So the claim "stronger models don't prevent the duplicate" is not
+  supported as stated. The supported claim is narrower: stronger models reduce it modestly,
+  but most episodes are still harmed.

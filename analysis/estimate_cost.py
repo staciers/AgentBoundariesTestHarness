@@ -36,6 +36,9 @@ def main(spec_path: str, run_dir: str, headroom: float = 0.3) -> None:
     cost = Counter()
     for c in expand(spec):
         agent, pol = make_agent(c.agent).label, parent(make_policy(c.policy).label)
+        if agent.startswith("scripted"):  # no API calls
+            plan[agent] += 1
+            continue
         for key in ((agent, c.fault_label, pol), (agent, c.fault_label), (agent,)):
             if cells.get(key):
                 unit = float(np.mean(cells[key]))

@@ -580,6 +580,27 @@ class TestPlatformDomain(unittest.TestCase):
             self.assertTrue(r["success"], seed)
 
 
+class TestPilotFixes(unittest.TestCase):
+    def test_devops_task_invalid_is_detectable(self):
+        """Stage A pilot: the corrupted release list must contradict the prompt, not just mislead."""
+        sc = make_scenario("devops/base")
+        self.assertIn("healthy in production", sc.prompt)
+        resp = sc.semantic_faults[FaultType.TASK_INVALID_RESULT].mutate_response(
+            {"deployments": [{"version": "v2.3.1-rc", "status": "unhealthy", "seq": 2, "environment": "staging"}]})
+        rc = resp["deployments"][0]
+        self.assertEqual((rc["status"], rc["environment"]), ("healthy", "staging"))
+
+    def test_workflow_still_fooled_careful_agent_not(self):
+        fs = [FaultSpec.parse("task_invalid_result").to_dict()]
+        pol = {"name": "P1", "runtime": "semantic"}
+        wf = [run_episode(EpisodeConfig("devops/base", pol, {"type": "scripted", "profile": "workflow"}, fs, "x",
+                                        seed=s))["outcome"] for s in range(3)]
+        self.assertEqual(set(wf), {"harm"})
+        st = run_episode(EpisodeConfig("devops/base", pol, {"type": "scripted", "profile": "strong",
+                                                             "detect_invalid": 1.0}, fs, "x", seed=0))
+        self.assertEqual(st["outcome"], "success")
+
+
 class TestDeterminismAndRunner(unittest.TestCase):
     def test_deterministic(self):
         a = ep("commerce/ambiguous", "P5", "careful", ["timeout_after_execution"], seed=3)

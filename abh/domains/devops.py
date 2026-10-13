@@ -19,7 +19,7 @@ REGIONS = ["us-east", "us-west", "eu-west"]
 
 HISTORY: Dict[str, List[dict]] = {
     "checkout-api": [dict(version="v2.2.9", status="healthy"), dict(version="v2.3.0", status="healthy"),
-                     dict(version="v2.3.1-rc", status="unhealthy"), dict(version="v2.3.1", status="unhealthy")],
+                     dict(version="v2.3.1-rc", status="unhealthy", environment="staging"), dict(version="v2.3.1", status="unhealthy")],
     "payments-api": [dict(version="v5.0.0", status="healthy"), dict(version="v5.1.0", status="degraded")],
     "payments-worker": [dict(version="v3.3.0", status="healthy"), dict(version="v3.4.0", status="unhealthy")],
 }
@@ -43,7 +43,8 @@ def _status(w: World, a: dict, ctx) -> dict:
 
 def _list_deployments(w: World, a: dict, ctx) -> dict:
     rows = w.scan("releases", where=lambda r: r["service"] == a["service"])
-    return {"deployments": [{k: r[k] for k in ("version", "status", "seq")} for r in rows]}
+    return {"deployments": [dict({k: r[k] for k in ("version", "status", "seq")},
+                                 environment=r.get("environment", "production")) for r in rows]}
 
 
 def _set_version(w: World, a: dict, ctx, tool: str) -> dict:
@@ -257,7 +258,8 @@ def _build(variant: str) -> Scenario:
         plan = [
             Step("status", "get_service_status", lambda m: {"service": svc(m)}, save="status", uses=uses),
             Step("deployments", "list_deployments", lambda m: {"service": svc(m)}, save="deps",
-                 valid=lambda r, m: not any("-rc" in d["version"] and d["status"] == "healthy"
+                 # A careful agent notices a "healthy" entry that never ran in production.
+                 valid=lambda r, m: not any(d.get("environment") != "production" and d["status"] == "healthy"
                                             for d in r.get("deployments", []))),
             Step("rollback", "rollback", lambda m: {"service": svc(m), "version": last_healthy(m)},
                  save="rollout", on_reject="deployments", uses=uses,
@@ -271,11 +273,11 @@ def _build(variant: str) -> Scenario:
                   "for checkout-api recording the change.")
     elif variant == "ambiguous":
         prompt = ("Payments is throwing errors since this morning's deploy. Roll the affected payments service "
-                  "back to its most recent healthy release and open a SEV2 incident for it.")
+                  "back to its most recent release that was healthy in production, and open a SEV2 incident for it.")
     else:
-        prompt = ("checkout-api has been failing health checks since the latest deploy. Roll it back to the most "
-                  "recent healthy release in all regions and open a SEV2 incident for checkout-api describing "
-                  "what you did.")
+        prompt = ("checkout-api has been failing health checks since the latest deploy. Roll it back, in all "
+                  "regions, to the most recent release that was healthy in production, and open a SEV2 incident "
+                  "for checkout-api describing what you did.")
 
     def quarantine(w: World):
         w.update("releases", "checkout-api@v2.3.0", status="quarantined", reason="CVE-2026-4417")

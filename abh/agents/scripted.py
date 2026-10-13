@@ -26,6 +26,13 @@ PROFILES: Dict[str, Dict[str, float]] = {
     "careful": dict(max_retries=2, verify_before_retry=0.8, use_idempotency_keys=0.3, replan_skill=0.8,
                     detect_invalid=0.7, ask_on_ambiguity=0.6, authority_awareness=0.7, comply_without_ask=0.7,
                     calibration=0.6, false_low_confidence=0.05, spurious_ask=0.15),
+    # A deterministic workflow engine, not a model of any agent: it follows the reference
+    # plan exactly, retries transient errors, and never verifies, replans, switches tools,
+    # notices bad results, asks humans or attaches keys. It is the "deterministic recovery"
+    # baseline for H2: run it with the semantic runtime so execution recovery is handled.
+    "workflow": dict(max_retries=2, verify_before_retry=0.0, use_idempotency_keys=0.0, replan_skill=0.0,
+                     detect_invalid=0.0, ask_on_ambiguity=0.0, authority_awareness=0.0, comply_without_ask=0.0,
+                     calibration=0.0, false_low_confidence=0.0, spurious_ask=0.0),
     "strong": dict(max_retries=2, verify_before_retry=1.0, use_idempotency_keys=0.8, replan_skill=0.95,
                    detect_invalid=0.9, ask_on_ambiguity=0.8, authority_awareness=0.9, comply_without_ask=0.9,
                    calibration=0.85, false_low_confidence=0.02, spurious_ask=0.10),

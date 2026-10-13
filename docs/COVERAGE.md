@@ -1,6 +1,6 @@
 # Coverage: prospectus vs. harness vs. evidence
 
-Status as of 2026-10-12. "Harness" means the code can run the condition. "Scripted" means it
+Status as of 2026-10-12, after the confirmation run. "Harness" means the code can run the condition. "Scripted" means it
 has run with scripted agents, which validates the harness but is not evidence (see
 [note](DEFINITIONS.md#note-scripted_not_evidence)). "LLM" means it has run with real models.
 Update this file when runs land.
@@ -21,14 +21,14 @@ Legend: ✅ covered · 🟡 partial · ❌ not yet
 
 | | Hypothesis | LLM evidence | Next |
 |---|---|---|---|
-| H1 | Runtime beats model recovery on execution failures | ✅ strong (p≈10⁻¹³), for 3 execution faults | confirmation run (C1); extend to all execution faults (Stage A) |
-| H2 | Agent beats deterministic recovery on semantic failures | ❌ no semantic faults run with LLMs | Stage A |
+| H1 | Runtime beats model recovery on execution failures | ✅ **confirmed** (C1: 70% harm without keys vs 0% under P6; 4 models, 30 seeds), for 3 execution faults | extend to all execution faults (Stage A) |
+| H2 | Agent beats deterministic recovery on semantic failures | ❌ no semantic faults run with LLMs | **Stage A ready**: `experiments/stage_a.json`, pre-registration draft `docs/preregistration/stage-a.md`; pilot first |
 | H3 | Humans add most value for authority / consequential ambiguity | ❌ | Stage B |
 | H4 | Hybrid (P6) dominates P1–P5 on risk–coverage | ❌ only P1 vs P6 | Stage B |
-| H5 | Scaling helps semantic recovery, not execution ambiguity | 🟡 recovery effect significant; "doesn't prevent" not yet shown; no top tier | confirmation run (C2, E1); Stage C |
+| H5 | Scaling helps semantic recovery, not execution ambiguity | 🟡 **C2 confirmed**: stronger models leave less end-state harm (32% vs 75%). **E1 not equivalent**: stronger models also cause somewhat less harm (64% vs 76%), so "doesn't prevent" holds only in the weaker form "doesn't come close to preventing". No top tier yet | Stage C (frontier tier) |
 | H6 | Handling failures below the model saves tokens/calls | ✅ strong for all 4 models (p<10⁻⁷) | none needed |
 | H7 | Execution-aware escalation saves human attention without losing recall | ❌ | Stage B |
-| new | Offering idempotency keys can *increase* harm under a hidden partial commit | 🟡 exploratory, significant (p=0.0025) | confirmation run (C3–C5, M1, M2) |
+| new | Offering idempotency keys can *increase* harm under a hidden partial commit | ✅ **confirmed** (C3: 30% vs 1%), larger for the OpenAI models (C4: 47% vs 13%), and driven by the "at most once" wording (C5: 30% vs 3% with caveated wording) | key-reuse with different parameters (harness item 6); `platform` domain |
 
 ## Experimental conditions (prospectus §5–§7)
 
