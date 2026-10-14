@@ -21,7 +21,7 @@ from .human import EscalationKind, EscalationRequest, HumanResponse, SimulatedHu
 from .policies import ControlPolicy, GateContext
 from .runtime import Outcome, ReliabilityRuntime, RuntimeMode, agent_view
 from .semantics import Controller, ExecutionState
-from .tools import ToolRegistry
+from .tools import ToolError, ToolRegistry
 from .trace import Trace
 from .world import World
 
@@ -162,8 +162,8 @@ class ControlPlane:
         try:
             auth = self.s.delegation.check(tool.name, args, self.world)
             needs_human, _ = self.oracle.needs_human(tool.name, args, self.world)
-        except (KeyError, TypeError, ValueError, AttributeError, IndexError) as e:
-            # Arguments too malformed to evaluate. Reject before execution as an invalid request;
+        except (KeyError, TypeError, ValueError, AttributeError, IndexError, ToolError) as e:
+            # Arguments too malformed to evaluate (including a request error raised by a domain's checks). Reject before execution as an invalid request;
             # only calls that would otherwise have crashed the harness reach this branch.
             msg = f"Error (invalid_request): invalid arguments for {tool.name}: {type(e).__name__}: {e}"
             self.trace.emit("invalid_arguments", "control_plane", call_id=call.id, tool=tool.name, error=str(e))

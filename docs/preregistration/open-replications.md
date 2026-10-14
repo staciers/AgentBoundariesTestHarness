@@ -93,4 +93,16 @@ Same rules as the [confirmation run](compound-confirm.md#exclusions-and-deviatio
 
 ### Deviations
 
-_None yet._
+**2026-10-14: harness defect found during open-stage-a (recorded before the affected outcome
+was seen).** One episode (`8cd9eda0daf106a6`, `scheduling/base`) crashed. A model called
+`create_meeting` with an empty start time; the scheduling approver check raised the
+harness's own `InvalidRequest`. The earlier crash fix (`52148b2`) caught only Python's
+built-in exceptions, so this escaped.
+
+- **Primary analysis:** per the exclusion rule. The episode is re-run from the registered
+  commit `53d1fc8`, and excluded if it crashes again.
+- **Sensitivity analysis** (decided now, as registered in `52148b2`): if it is excluded, it
+  is re-run with the fix, commit to be recorded here, and results are reported with and
+  without it.
+- **The fix** turns would-be crashes into an "invalid arguments" error, and leaves every
+  other episode unchanged: all 2,680 confirmation-run episodes replay identically under it.

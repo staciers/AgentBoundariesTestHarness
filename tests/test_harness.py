@@ -717,6 +717,15 @@ class TestMalformedArguments(unittest.TestCase):
             self.assertEqual(r["outcome"], "fail_safe")
             self.assertTrue(any(e["event"] == "invalid_arguments" for e in r["trace"]))
 
+    def test_request_errors_in_pre_execution_checks_become_error_result(self):
+        # open-stage-a: an empty meeting start time made the scheduling approver check raise InvalidRequest.
+        from abh.agents.replay import ReplayAgent
+        trace = [{"event": "agent_call", "call_id": "c0", "tool": "create_meeting", "t_ms": 1000,
+                  "args": {"title": "t", "attendees": ["alice", "bob", "carol"], "start": "", "duration_min": 30}},
+                 {"event": "episode_end", "termination": "final", "final": "x", "t_ms": 2000}]
+        r = run_episode(EpisodeConfig("scheduling/base", "P6", "scripted"), agent=ReplayAgent(trace))
+        self.assertTrue(any(e["event"] == "invalid_arguments" for e in r["trace"]))
+
     def test_handler_type_errors_become_invalid_request(self):
         from abh.tools import InvalidRequest, InvocationContext
         sc = make_scenario("platform/base")
