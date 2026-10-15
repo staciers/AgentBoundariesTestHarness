@@ -57,6 +57,10 @@ class Agent:
     def act(self, results: Optional[List[ToolResult]]) -> AgentTurn:
         raise NotImplementedError
 
+    def user_reply(self, text: str) -> bool:
+        """Continue after a final reply with a new user message. False if unsupported."""
+        return False
+
     def transcript(self) -> Optional[list]:
         return None
 

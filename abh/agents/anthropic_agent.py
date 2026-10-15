@@ -128,6 +128,10 @@ class AnthropicAgent(Agent):
         return Usage(input_tokens=u.input_tokens + cin + cwr, output_tokens=u.output_tokens, cache_read_tokens=cin,
                      cache_write_tokens=cwr, model_calls=1, latency_ms=latency_ms, cost_usd=cost)
 
+    def user_reply(self, text: str) -> bool:
+        self.messages.append({"role": "user", "content": text})
+        return True
+
     def transcript(self) -> Optional[list]:
         return self._log
 

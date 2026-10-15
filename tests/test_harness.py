@@ -737,6 +737,93 @@ class TestMalformedArguments(unittest.TestCase):
             tools["commit_changes"].execute(w, {"branch": "fix", "message": "m", "files": ["x"]}, InvocationContext("c1"))
 
 
+class TestHumanModel(unittest.TestCase):
+    def test_doc_is_current(self):
+        from abh.definitions import DEFINITIONS_PATH
+        from abh.human_model import render_doc
+        with open(os.path.join(os.path.dirname(DEFINITIONS_PATH), "HUMAN_MODEL.md")) as f:
+            self.assertEqual(f.read(), render_doc(), "docs/HUMAN_MODEL.md is stale: run `python -m abh human-model-doc`")
+
+    def test_coverage_shapes_waits(self):
+        import random as _r
+        from abh.human_model import OrgProfile, draw_params, escalation_minutes
+        p = draw_params(_r.Random(0), "central")
+        prof = lambda cov: OrgProfile("x", 1.0, {"approval": cov}, {"approval": 0.0})
+        mean = lambda cov, period: sum(escalation_minutes("approval", period, prof(cov), p, _r.Random(i))[0]
+                                       for i in range(300)) / 300
+        self.assertGreater(mean("business_hours", "night"), 120)            # queues until morning
+        self.assertLess(mean("follow_the_sun", "night"), mean("regional_oncall", "night"))
+        self.assertAlmostEqual(mean("business_hours", "business"), mean("follow_the_sun", "business"), delta=1e-9)
+
+    def test_runbooks_and_chains(self):
+        import random as _r
+        from abh.human_model import OrgProfile, draw_params, escalation_minutes
+        p = draw_params(_r.Random(0), "central")
+        go = lambda prof: sum(escalation_minutes("approval", "business", prof, p, _r.Random(i))[0] for i in range(300))
+        base = OrgProfile("a", 1, {"approval": "business_hours"}, {"approval": 0.0})
+        runbook = OrgProfile("b", 1, {"approval": "business_hours"}, {"approval": 1.0})
+        chain = OrgProfile("c", 1, {"approval": "business_hours"}, {"approval": 0.0}, approval_chain=2)
+        self.assertLess(go(runbook), go(base))
+        self.assertGreater(go(chain), go(base))
+
+    def test_no_escalations_cost_nothing(self):
+        import random as _r
+        from abh.human_model import PROFILES, draw_params, episode_human_cost
+        self.assertEqual(episode_human_cost([], PROFILES[0], draw_params(_r.Random(0)), _r.Random(0)), (0.0, 0.0, 0.0))
+
+
+class TestPrincipalReply(unittest.TestCase):
+    """Stage B pilot: capable agents stop and ask instead of guessing; the principal must be able to answer."""
+
+    class Asker:
+        label = "fake:asker"
+
+        def __init__(self, act_first=False):
+            self.act_first = act_first
+
+        def start(self, brief, seed):
+            self.turn, self.replies = 0, []
+
+        def act(self, results):
+            from abh.agents.base import AgentTurn
+            from abh.controlplane import ToolCall
+            self.turn += 1
+            if self.act_first and self.turn == 1:
+                return AgentTurn(calls=[ToolCall("c1", "book_hotel", {"hotel_id": "H1", "traveler": "Dana Lee",
+                                                                     "checkin": "2026-11-12", "nights": 2})])
+            if not self.replies:
+                return AgentTurn(final="Which hotel is Dana's usual one?")
+            return AgentTurn(final="Thanks, noted.")
+
+        def user_reply(self, text):
+            self.replies.append(text)
+            return True
+
+        def transcript(self):
+            return None
+
+    def episode(self, agent, replies=1):
+        return run_episode(EpisodeConfig("travel/ambiguous", "P1", "scripted", principal_replies=replies), agent=agent)
+
+    def test_reply_when_agent_stops_to_ask(self):
+        a = self.Asker()
+        r = self.episode(a)
+        self.assertEqual(r["principal_replies_used"], 1)
+        self.assertIn("Harbor Inn", a.replies[0])
+        self.assertEqual(r["needs_met"], r["needs_total"])
+        self.assertEqual(r["interventions"], 1)
+
+    def test_no_reply_after_acting_or_when_disabled(self):
+        self.assertEqual(self.episode(self.Asker(act_first=True))["principal_replies_used"], 0)
+        self.assertEqual(self.episode(self.Asker(), replies=0)["principal_replies_used"], 0)
+
+    def test_episode_keys_unchanged_without_replies(self):
+        from abh.experiment import episode_key
+        c = EpisodeConfig("travel/base", "P1", "scripted")
+        self.assertEqual(episode_key(c), episode_key(EpisodeConfig("travel/base", "P1", "scripted", principal_replies=0)))
+        self.assertNotEqual(episode_key(c), episode_key(EpisodeConfig("travel/base", "P1", "scripted", principal_replies=1)))
+
+
 class TestDeterminismAndRunner(unittest.TestCase):
     def test_deterministic(self):
         a = ep("commerce/ambiguous", "P5", "careful", ["timeout_after_execution"], seed=3)

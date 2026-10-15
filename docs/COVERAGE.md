@@ -1,6 +1,6 @@
 # Coverage: prospectus vs. harness vs. evidence
 
-Status as of 2026-10-12, after the confirmation run. "Harness" means the code can run the condition. "Scripted" means it
+Status as of 2026-10-14, after the confirmation run, Stages A and C, and the open-weight replications. "Harness" means the code can run the condition. "Scripted" means it
 has run with scripted agents, which validates the harness but is not evidence (see
 [note](DEFINITIONS.md#note-scripted_not_evidence)). "LLM" means it has run with real models.
 Update this file when runs land.
@@ -46,7 +46,7 @@ Legend: ✅ covered · 🟡 partial · ❌ not yet
 | Action types (read-only → irreversible) | ✅ present in all base scenarios | ✅ | 🟡 present, not yet analysed by action type |
 | Domains (5; `platform` added 2026-10-12) | ✅ | 🟡 `platform` swept with scripted agents only | 🟡 `base` variants of the original 4 only |
 | Variants (`ambiguous`, `authority`) | ✅ | ✅ | ❌ |
-| Model families and capability levels | ✅ Anthropic, OpenAI, open weights via `compat` | n/a | 🟡 2 families × 2 tiers; frontier tier set up (Stage C, piloted); open weights adapter built, `experiments/open_pilot.json` ready (needs a provider key) |
+| Model families and capability levels | ✅ Anthropic, OpenAI, open weights via `compat` | n/a | ✅ 4 families × 2 tiers (Anthropic, OpenAI, DeepSeek, GLM) + frontier tier (Fable 5.1, `gpt-6-astra`): 10 models in pre-registered runs |
 | Failure *frequencies* (Phase IV) | ✅ rate-based faults (`rate`, `@writes`/`@reads`/`@any`, mixed profiles) | ✅ `experiments/rate_sweep_scripted.json` | ❌ |
 | Human attention as a constrained resource | 🟡 per-episode budget and fatigue; no shared reviewer pool | 🟡 | ❌ |
 | Human parameters calibrated to people | 🟡 interactive mode exists | ❌ | ❌ |
@@ -70,8 +70,11 @@ Harness work these stages don't cover:
    rate sweep with LLM agents.
 2. **A shared reviewer pool** across concurrent episodes. Needed for RQ5 at scale, and the
    seed of Paper 5.
-3. **A small interactive pilot with real people**, to calibrate human latency and error rates
-   before making claims about human cost.
+3. **A small interactive pilot with real people.** Human *time and cost* now have an empirical
+   model (`abh/human_model.py`, docs/HUMAN_MODEL.md): org profiles, coverage, after-hours,
+   runbooks, approval chains, with ranges grounded where public data exists (VOID, PagerDuty)
+   and labelled assumptions elsewhere. Human *decision quality* (approval error rates) still
+   needs real people.
 4. **More scenarios.** LLM results currently generalise to four tasks. `platform` (repo / CI /
    PR) is built and scripted-validated: 3 variants, all 12 faults.
 5. **A third model family:** the open-weights adapter (`compat`) is built for hosted DeepSeek

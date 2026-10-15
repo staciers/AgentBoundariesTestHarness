@@ -106,3 +106,24 @@ built-in exceptions, so this escaped.
   without it.
 - **The fix** turns would-be crashes into an "invalid arguments" error, and leaves every
   other episode unchanged: all 2,680 confirmation-run episodes replay identically under it.
+
+### Outcome (recorded after analysis, 2026-10-14)
+
+Both runs completed; nothing was excluded. Every response came from the requested model.
+Execution details are in each run's `NOTES.md`.
+
+**open-confirm** (`runs/open-confirm-20261014-081413`): 2 of 4 replicated.
+
+- **OC1 replicated:** 86% harm without keys vs 0% under P6.
+- **OC5 replicated:** 12% vs 4% (the "at most once" wording effect).
+- **OC2 not replicated:** strong and weak models were no different.
+- **OC3 not replicated:** 12% vs 8%, same direction as the original.
+- **OE1:** equivalent.
+- **Exploratory:** the open models often attach an idempotency key only on the retry, which
+  protects nothing. That explains harm *with* keys (26–85%, vs 0% for the closed models) and
+  likely OC3.
+
+**open-stage-a** (`runs/open-stage-a-20261014-081413`): all of OA1, OA2, OA3, OE1 and OE2
+replicated. That includes A3, which was not confirmed for the closed models: the open
+models don't recover from single execution faults on their own (8% harm without a
+runtime).

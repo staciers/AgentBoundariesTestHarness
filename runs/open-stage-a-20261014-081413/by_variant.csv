@@ -1,0 +1,4 @@
+variant,policy,n,success,harm,interventions_per_task,intervention_precision,intervention_recall
+base,P1,1540,0.9428571428571428,0.048051948051948054,0.0,nan,nan
+base,P1[runtime=naive_retry],980,0.8326530612244898,0.1653061224489796,0.0,nan,nan
+base,P1[runtime=semantic],2170,0.9354838709677419,0.013824884792626729,0.0,nan,nan

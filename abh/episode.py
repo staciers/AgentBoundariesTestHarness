@@ -28,6 +28,10 @@ class EpisodeConfig:
     human: Any = None
     seed: int = 0
     max_turns: int = 30
+    # How many times the principal answers an agent that stopped to ask, i.e. ended its turn
+    # without committing any side effect while a principal-only ambiguity was still open.
+    # 0 (default) keeps the original behaviour: a final reply ends the episode.
+    principal_replies: int = 0
 
 
 def fault_label(faults: List[FaultSpec]) -> str:
@@ -72,6 +76,7 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
     usage = Usage()
     results = None
     final, termination, agent_error = None, "max_turns", None
+    replies = 0
     for turn in range(cfg.max_turns):
         t = agent.act(results)
         usage.add(t.usage)
@@ -81,6 +86,13 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
             break
         if t.final is not None:
             final, termination = t.final, "final"
+            if replies < cfg.principal_replies and not world.effects and cp.unmet_ambiguity():
+                answer = cp.principal_reply(t.final)
+                if agent.user_reply(answer):
+                    replies += 1
+                    trace.emit("principal_reply", "human", text=answer)
+                    results = None
+                    continue
             break
         results = [cp.handle(c) for c in t.calls]
     trace.emit("episode_end", "harness", termination=termination, final=final, error=agent_error)
@@ -152,6 +164,7 @@ def _evaluate(cfg, scenario, policy, agent, rcfg, world, cp: ControlPlane, injec
         "faults_injected": [f.to_dict() for f in injector.injected],
         "escalations": [e.to_dict() for e in cp.escalations],
         "termination": termination, "agent_error": agent_error, "final_message": final,
+        "principal_replies_used": sum(1 for e in cp.escalations if e.request.trigger == "principal_reply"),
         "trace": trace.to_list() if trace is not None else None,
         "transcript": agent.transcript(),
     }

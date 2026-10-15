@@ -162,6 +162,10 @@ class OpenAIAgent(Agent):
         return Usage(input_tokens=inp, output_tokens=out, cache_read_tokens=cached,
                      model_calls=1, latency_ms=latency_ms, cost_usd=cost)
 
+    def user_reply(self, text: str) -> bool:
+        self.pending_input = text  # chained to the previous response via previous_response_id
+        return True
+
     def transcript(self) -> Optional[list]:
         return self._log
 

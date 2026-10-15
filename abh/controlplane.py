@@ -141,6 +141,15 @@ class ControlPlane:
         self.needs_met.update(met)
         return met
 
+    def unmet_ambiguity(self) -> bool:
+        return self._unmet_ambiguity()
+
+    def principal_reply(self, agent_message: str) -> str:
+        """The principal answers an agent that stopped to ask (a clarification escalation)."""
+        resp = self._escalate(EscalationKind.CLARIFICATION, "principal_reply", self._unmet_ambiguity(),
+                              question=agent_message[-2000:])
+        return resp.message
+
     def _unmet_ambiguity(self) -> bool:
         return any(n.kind == "ambiguity" and n.id not in self.needs_met for n in self.s.human_needs)
 

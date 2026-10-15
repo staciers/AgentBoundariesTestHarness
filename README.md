@@ -103,7 +103,7 @@ prices are supplied.
 | Faults (12) | `abh/faults.py` | the full prospectus §6 taxonomy; each injection records whether it committed and who resolved it; faults can be combined (compound faults) (link: https://docs.google.com/document/d/1Uwq2EzlwCvjG2rwmyl9x1YVzFJiwK02g9VYpPjhgEBE/edit?tab=t.h35zl5z98uqb)|
 | Runtime | `abh/runtime.py` | `none` (raw errors), `naive_retry` (conventional infra retry), `semantic` (keys, reconcile, verify, compensate, classify) |
 | Authority | `abh/authority.py` | principals, delegation, rules; kept independent of uncertainty |
-| Human | `abh/human.py` | simulated (log-normal latency, error rate, vigilance decrement, attention budget) or interactive |
+| Human | `abh/human.py`, `abh/human_model.py` | in-episode decisions: simulated (error rate, vigilance decrement, attention budget) or interactive. After the run: an empirical time-and-cost model by organization profile (coverage, after-hours, runbooks, approval chains) with Monte Carlo intervals; `abh human-cost runs/<dir>`, see [docs/HUMAN_MODEL.md](docs/HUMAN_MODEL.md) |
 | Policies | `abh/policies.py` | P1–P6 and ORACLE; the runtime mode can be overridden per experiment |
 | Control plane | `abh/controlplane.py` | authority → gate → runtime → route; does the ground-truth bookkeeping |
 | Scenarios | `abh/domains/` | travel, commerce, devops, scheduling, platform (repo / CI / PR, the Paper 2 seed) × {base, ambiguous, authority} |

@@ -107,12 +107,16 @@ def expand(spec: Dict[str, Any]) -> Iterator[EpisodeConfig]:
                         for seed in seeds:
                             yield EpisodeConfig(scenario=sid, policy=pol, agent=ag, faults=[f.to_dict() for f in cond],
                                                 fault_label=fault_label(cond), runtime=rt, human=spec.get("human"),
-                                                seed=seed, max_turns=spec.get("max_turns", 30))
+                                                seed=seed, max_turns=spec.get("max_turns", 30),
+                                                principal_replies=int(spec.get("principal_replies", 0)))
 
 
 def episode_key(c: EpisodeConfig) -> str:
-    blob = json.dumps([c.scenario, make_policy(c.policy).label, make_agent(c.agent).label, c.fault_label,
-                       c.faults, c.runtime, c.human, c.seed], sort_keys=True, default=str)
+    parts = [c.scenario, make_policy(c.policy).label, make_agent(c.agent).label, c.fault_label,
+             c.faults, c.runtime, c.human, c.seed]
+    if c.principal_replies:  # only when used, so earlier episode keys are unchanged
+        parts.append({"principal_replies": c.principal_replies})
+    blob = json.dumps(parts, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()[:16]
 
 
