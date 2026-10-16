@@ -49,6 +49,23 @@ The weights are a default population mix, not measured shares.
 | global enterprise | 30% | regional_oncall | business_hours | follow_the_sun | 50% / 20% / 70% | 1 | 140 |
 | regulated | 10% | business_hours | business_hours | follow_the_sun | 70% / 20% / 80% | 2 | 160 |
 
+## How the outputs are computed
+
+For each Monte Carlo draw (default 200, seed 0), every parameter above is sampled uniformly within its range. Then, for each task (episode) in the run:
+
+1. **Organization.** A profile is chosen (by weight, for the weighted mix), and the task's arrival period is drawn: business hours with probability 1 − `offhours_share`; otherwise night with probability `night_share_of_offhours`, else evening/weekend.
+2. **Each recorded escalation, in order:**
+   - *decision time* = log-normal(median for its kind, `lognormal_sigma`) × `runbook_multiplier` if a runbook exists (probability = the profile's runbook coverage for that kind)
+   - plus the coverage effect outside business hours: `handoff_delay_min` (follow-the-sun); × `offhours_multiplier`, or × `sleep_multiplier` + `sleep_wake_delay_min` at night (regional on-call); or the wait until 09:00 the next business day (business hours only, ~40% of off-hours arrivals fall on a weekend)
+   - approvals with a chain of *n* add *n − 1* further decision times
+   - *effort* = the effort parameter for its kind × log-normal(0, 0.4), × *n* for approval chains
+3. **Per task:** time to decision = Σ decision times; effort = Σ efforts; **cost = effort ÷ 60 × the profile's $/hour**. A task with no escalations costs 0.
+4. **Per draw and policy:** the median and p90 of time to decision across tasks, the share of tasks waiting over 60 minutes, and the **mean** effort and cost per task.
+
+Each reported cell is the **median across draws**, with the 5th–95th percentile across draws in parentheses. Because the cost is a median of per-draw means, it is close to, but not exactly, (effort per task ÷ 60) × the mix's average hourly rate.
+
+*Worked example (Stage B, P2, weighted mix):* 17.6 effort-minutes per task × $127.50/h (the weights' average rate: 0.25×110 + 0.35×120 + 0.30×140 + 0.10×160) ÷ 60 ≈ $37.40, against the reported $38.22 ($13.01–65.07).
+
 ## Calibrating it
 
 The ranges should be narrowed with real data: a team's own PagerDuty or incident-tool exports (time to acknowledge, by hour and by whether a runbook was linked), approval-tool logs, or the planned interactive pilot with real reviewers. Edit `PARAMS` and `PROFILES` in `abh/human_model.py`, then regenerate this file.

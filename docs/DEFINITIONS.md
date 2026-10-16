@@ -98,7 +98,13 @@ Measured against scenario ground truth (see [human_needs](#human_needs)).
 **`human_wait_minutes`**: Mean simulated minutes spent waiting for humans per episode.
 
 <a id="human_cost_usd"></a>
-**`human_cost_usd`**: Human wait time × the configured hourly rate.
+**`human_cost_usd`**: In-episode simulator only: simulated human wait time × the configured hourly rate (episode field). A rough placeholder; for human cost per task in a real organization, use [human_effort_cost_per_task](#human_effort_cost_per_task).
+
+<a id="human_time_to_decision"></a>
+**`human_time_to_decision`**: Empirical human model (`abh human-cost`, [HUMAN_MODEL.md](HUMAN_MODEL.md#how-the-outputs-are-computed)): minutes an agent waits on humans in one task, summed over its escalations. Each escalation takes a log-normal decision time for its kind, scaled for a runbook, after-hours or night arrival, and the organization's coverage (follow-the-sun handoff, on-call wake-up, or queueing until the next business morning), times the approval-chain length for approvals. Reported per policy as the median (and p90) across tasks.
+
+<a id="human_effort_cost_per_task"></a>
+**`human_effort_cost_per_task`**: Empirical human model: **mean over tasks of (active human minutes ÷ 60 × the organization's hourly rate)**. Active minutes per escalation = the effort parameter for its kind × a log-normal(0, 0.4) factor (× the approval-chain length for approvals), summed over the task's escalations. Waiting time is *not* costed. For the weighted mix, each task is assigned an organization profile by weight. Each Monte Carlo draw samples all parameters uniformly within their ranges; the reported value is the median across draws, with the 5th–95th percentile as its interval. Details: [HUMAN_MODEL.md](HUMAN_MODEL.md#how-the-outputs-are-computed).
 
 ## Side effects and authority
 

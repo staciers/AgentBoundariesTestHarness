@@ -168,3 +168,20 @@ crashes again. Sensitivity analysis (as registered in `52148b2`): if excluded, i
 the fix (an approver now rejects a request too malformed to judge; commit to be recorded here) and
 results are reported with and without it. The fix leaves every other episode unchanged (all 2,680
 confirmation-run episodes replay identically under it).
+
+**Sensitivity outcome:** the one excluded episode (`dba2866062b17895`) crashed again when re-run
+from `a39b53c`. Re-run with the fix (`c2a6fae`) it succeeded, and every confirmatory verdict was
+identical with and without it.
+
+### Outcome (recorded after analysis, 2026-10-16)
+
+- **B1, B2, B4 and B5 confirmed.**
+- **B6 not confirmed:** P5 met slightly *more* human needs than P6 (72% vs 67%).
+- **N1 not shown:** P6 meets fewer human needs than P2 (67% vs 93%). P6 trades recall for
+  attention.
+- **N2 non-inferior;** P6 is in fact safer than P4 (4% vs 16% harm).
+- **E1 different:** P6 beats P1 even on `base` variants, because of its runtime.
+- **Human time and cost** (weighted mix): P2 makes the median task wait 3.9 h, at $38 per task;
+  P6 adds no wait for the median task, at $5.90.
+
+Details are in the run's `NOTES.md`.

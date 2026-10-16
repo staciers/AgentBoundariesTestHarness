@@ -66,13 +66,13 @@ class Oracle:
     def approve(self, tool: str, args: dict, world: World) -> Tuple[bool, str, dict]:
         try:
             ok, reason, hint = self.action_correct(tool, args, world)
+            if not ok:
+                return False, reason, hint
+            auth = self.s.delegation.check(tool, args, world)
+            if not auth.permitted and not self.s.approver_accepts(tool, args, world):
+                return False, "This exceeds what I can authorise.", {}
         except Exception as e:  # malformed arguments: an approver rejects the request as written
             return False, f"I can't approve that request as written ({e}).", {}
-        if not ok:
-            return False, reason, hint
-        auth = self.s.delegation.check(tool, args, world)
-        if not auth.permitted and not self.s.approver_accepts(tool, args, world):
-            return False, "This exceeds what I can authorise.", {}
         return True, "Looks right.", {}
 
     def clarify(self, question: str, world: World) -> Tuple[str, dict]:

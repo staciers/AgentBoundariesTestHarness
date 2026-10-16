@@ -112,7 +112,27 @@ TERMS: List[Term] = [
     _T("human_errors", "oversight", "Mean number of escalations where the simulated human answered wrongly "
                                     "(base error rate plus fatigue)."),
     _T("human_wait_minutes", "oversight", "Mean simulated minutes spent waiting for humans per episode."),
-    _T("human_cost_usd", "oversight", "Human wait time × the configured hourly rate."),
+    _T("human_cost_usd", "oversight", "In-episode simulator only: simulated human wait time × the configured hourly "
+                                      "rate (episode field). A rough placeholder; for human cost per task in a real "
+                                      "organization, use {d:human_effort_cost_per_task}."),
+    _T("human_time_to_decision", "oversight", "Empirical human model (`abh human-cost`, "
+                                              "[HUMAN_MODEL.md](HUMAN_MODEL.md#how-the-outputs-are-computed)): minutes "
+                                              "an agent waits on humans in one task, summed over its escalations. Each "
+                                              "escalation takes a log-normal decision time for its kind, scaled for a "
+                                              "runbook, after-hours or night arrival, and the organization's coverage "
+                                              "(follow-the-sun handoff, on-call wake-up, or queueing until the next "
+                                              "business morning), times the approval-chain length for approvals. "
+                                              "Reported per policy as the median (and p90) across tasks."),
+    _T("human_effort_cost_per_task", "oversight", "Empirical human model: **mean over tasks of (active human "
+                                                  "minutes ÷ 60 × the organization's hourly rate)**. Active minutes per "
+                                                  "escalation = the effort parameter for its kind × a log-normal(0, 0.4) "
+                                                  "factor (× the approval-chain length for approvals), summed over the "
+                                                  "task's escalations. Waiting time is *not* costed. For the weighted mix, "
+                                                  "each task is assigned an organization profile by weight. Each Monte "
+                                                  "Carlo draw samples all parameters uniformly within their ranges; the "
+                                                  "reported value is the median across draws, with the 5th–95th "
+                                                  "percentile as its interval. Details: "
+                                                  "[HUMAN_MODEL.md](HUMAN_MODEL.md#how-the-outputs-are-computed)."),
     # ---------------------------------------------------------- side effects
     _T("duplicate_effects", "side_effects", "Mean number of effects (charges, invites, pages, deploys) whose "
                                             "business identity is executed more than once **and still active at "

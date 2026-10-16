@@ -737,6 +737,14 @@ class TestMalformedArguments(unittest.TestCase):
         self.assertEqual(r["interventions"], 1)
         self.assertEqual(r["escalations"][0]["response"]["decision"], "deny")
 
+    def test_approval_of_merge_without_number_is_rejected_not_crashed(self):
+        # Stage B: merge_pr without a PR number reached platform's approver_accepts, which crashed.
+        from abh.agents.replay import ReplayAgent
+        trace = [{"event": "agent_call", "call_id": "c0", "tool": "merge_pr", "t_ms": 1000, "args": {}},
+                 {"event": "episode_end", "termination": "final", "final": "x", "t_ms": 2000}]
+        r = run_episode(EpisodeConfig("platform/authority", "P2", "scripted"), agent=ReplayAgent(trace))
+        self.assertEqual(r["escalations"][0]["response"]["decision"], "deny")
+
     def test_handler_type_errors_become_invalid_request(self):
         from abh.tools import InvalidRequest, InvocationContext
         sc = make_scenario("platform/base")
