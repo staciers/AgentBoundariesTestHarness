@@ -726,6 +726,17 @@ class TestMalformedArguments(unittest.TestCase):
         r = run_episode(EpisodeConfig("scheduling/base", "P6", "scripted"), agent=ReplayAgent(trace))
         self.assertTrue(any(e["event"] == "invalid_arguments" for e in r["trace"]))
 
+    def test_malformed_request_sent_for_approval_is_rejected_not_crashed(self):
+        # Stage B: P2 sent a create_meeting with an empty start time to the approver, whose judge crashed.
+        from abh.agents.replay import ReplayAgent
+        trace = [{"event": "agent_call", "call_id": "c0", "tool": "create_meeting", "t_ms": 1000,
+                  "args": {"title": "t", "attendees": ["alice", "bob", "pat@vendorco.com"], "start": "",
+                           "duration_min": 30}},
+                 {"event": "episode_end", "termination": "final", "final": "x", "t_ms": 2000}]
+        r = run_episode(EpisodeConfig("scheduling/authority", "P2", "scripted"), agent=ReplayAgent(trace))
+        self.assertEqual(r["interventions"], 1)
+        self.assertEqual(r["escalations"][0]["response"]["decision"], "deny")
+
     def test_handler_type_errors_become_invalid_request(self):
         from abh.tools import InvalidRequest, InvocationContext
         sc = make_scenario("platform/base")

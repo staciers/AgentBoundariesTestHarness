@@ -64,7 +64,10 @@ class Oracle:
         return self.s.judge(tool, args, world)
 
     def approve(self, tool: str, args: dict, world: World) -> Tuple[bool, str, dict]:
-        ok, reason, hint = self.action_correct(tool, args, world)
+        try:
+            ok, reason, hint = self.action_correct(tool, args, world)
+        except Exception as e:  # malformed arguments: an approver rejects the request as written
+            return False, f"I can't approve that request as written ({e}).", {}
         if not ok:
             return False, reason, hint
         auth = self.s.delegation.check(tool, args, world)

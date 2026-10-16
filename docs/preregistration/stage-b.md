@@ -153,4 +153,18 @@ Together). No change to hypotheses or tests.
 
 ### Deviations
 
-_None yet._
+**2026-10-16 — run stalled by system sleep (procedural; recorded before any outcome was seen).**
+The Mac entered repeated deep-idle/maintenance sleep overnight; in-flight API requests hung and
+progress stalled at 6,552/7,920. The run was stopped and resumed with `--resume` from the
+unchanged registered tree (`a39b53c`), now under `caffeinate -i -s` to prevent sleep. Completed
+episodes were kept; only in-flight episodes were redone. No design, code or analysis change.
+
+**2026-10-16 — harness defect found during the run (recorded before the affected outcome was
+seen).** One episode (`dba2866062b17895`, `scheduling/authority`) crashed: a `create_meeting` with
+an empty start time was routed to the simulated approver, whose judgement raised
+`InvalidRequest`. The earlier fixes covered the pre-execution checks but not this approval path.
+Primary analysis: per the exclusion rule, the episode is re-run from `a39b53c` and excluded if it
+crashes again. Sensitivity analysis (as registered in `52148b2`): if excluded, it is re-run with
+the fix (an approver now rejects a request too malformed to judge; commit to be recorded here) and
+results are reported with and without it. The fix leaves every other episode unchanged (all 2,680
+confirmation-run episodes replay identically under it).
