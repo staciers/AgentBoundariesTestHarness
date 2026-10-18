@@ -48,6 +48,8 @@ class ControlPolicy:
         self.expose_keys = bool(params.get("expose_keys", True))
         # Wording of the idempotency_key description (see tools.KEY_DESCRIPTIONS); ablation only.
         self.key_description = str(params.get("key_description", "at_most_once"))
+        if params.get("route", "human") not in ("human", "agent"):
+            raise ValueError("route must be 'human' or 'agent'")
         from .tools import KEY_DESCRIPTIONS
         if self.key_description not in KEY_DESCRIPTIONS:
             raise ValueError(f"key_description must be one of {sorted(KEY_DESCRIPTIONS)}")
@@ -121,9 +123,14 @@ class SemanticRuntimeAware(ControlPolicy):
     runtime_mode = RuntimeMode.SEMANTIC
     require_confidence = True
 
+    # Component switches, for ablating P6 (Stage D). All default on, so default labels and
+    # episode keys are unchanged: authority_gate, confidence_gate, route ("human" | "agent").
+
     def gate(self, g):
-        if not g.authority.permitted:
+        if self.params.get("authority_gate", True) and not g.authority.permitted:
             return "authority:" + ",".join(g.authority.violated)
+        if not self.params.get("confidence_gate", True):
+            return None
         sem = g.tool.semantics
         floor = Consequence.parse(self.params.get("min_consequence", "MEDIUM"))
         thr = float(self.params.get("threshold", 0.7))
@@ -134,6 +141,8 @@ class SemanticRuntimeAware(ControlPolicy):
         return None
 
     def route(self, out, tool):
+        if self.params.get("route", "human") == "agent":
+            return Controller.AGENT
         return Controller.HUMAN if _consequential_unresolved(out, tool) else Controller.AGENT
 
 

@@ -1,0 +1,136 @@
+{
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "devops/base",
+    "scheduling/base",
+    "platform/base"
+  ],
+  "workers": 4,
+  "keep_traces": true,
+  "name": "stage-a",
+  "_comment": "Stage A (H2, RQ1, RQ2). Pre-registered in docs/preregistration/stage-a.md. Crossover: LLM agents vs a deterministic workflow on semantic vs execution faults, all under the semantic runtime; plus runtime factor (none / naive_retry / semantic) for LLMs. Do not change after the run starts.",
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-opus-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6.1-sol",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6-luna",
+      "effort": "high"
+    }
+  ],
+  "seeds": {
+    "start": 100,
+    "count": 5
+  },
+  "blocks": [
+    {
+      "_name": "H2 semantic faults",
+      "fault_conditions": [
+        "precondition_changed",
+        "task_invalid_result",
+        "persistent_unavailable"
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "runtime": "semantic"
+        },
+        "P1"
+      ],
+      "seeds": {
+        "start": 100,
+        "count": 10
+      }
+    },
+    {
+      "_name": "execution faults x runtime",
+      "fault_conditions": [
+        "timeout_before_execution",
+        "timeout_after_execution",
+        "transient_failure",
+        "rate_limited",
+        "malformed_response",
+        "partial_response",
+        "delayed_visibility",
+        "duplicate_execution",
+        "partial_mutation"
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "runtime": "semantic"
+        },
+        "P1",
+        {
+          "name": "P1",
+          "runtime": "naive_retry"
+        }
+      ]
+    },
+    {
+      "_name": "no-fault baseline",
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "runtime": "semantic"
+        },
+        "P1",
+        {
+          "name": "P1",
+          "runtime": "naive_retry"
+        }
+      ]
+    },
+    {
+      "_name": "deterministic workflow baseline",
+      "agents": [
+        {
+          "type": "scripted",
+          "profile": "workflow"
+        }
+      ],
+      "fault_conditions": [
+        "none",
+        "precondition_changed",
+        "task_invalid_result",
+        "persistent_unavailable",
+        "timeout_before_execution",
+        "timeout_after_execution",
+        "transient_failure",
+        "rate_limited",
+        "malformed_response",
+        "partial_response",
+        "delayed_visibility",
+        "duplicate_execution",
+        "partial_mutation"
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "runtime": "semantic"
+        }
+      ],
+      "seeds": {
+        "start": 100,
+        "count": 10
+      }
+    }
+  ]
+}

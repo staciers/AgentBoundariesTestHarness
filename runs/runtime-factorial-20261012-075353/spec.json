@@ -1,0 +1,34 @@
+{
+  "name": "runtime-factorial",
+  "_comment": "RQ2/H1/H5/H6: cross runtime capability with agent competence under full autonomy.",
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "devops/base",
+    "scheduling/base"
+  ],
+  "policies": [
+    "P1"
+  ],
+  "runtime_overrides": [
+    "none",
+    "naive_retry",
+    "semantic"
+  ],
+  "agents": [
+    {
+      "type": "scripted",
+      "profile": "naive"
+    },
+    {
+      "type": "scripted",
+      "profile": "careful"
+    },
+    {
+      "type": "scripted",
+      "profile": "strong"
+    }
+  ],
+  "fault_conditions": "single",
+  "seeds": 20
+}

@@ -1,0 +1,10 @@
+policy,runtime,agent,n,success,harm,failures_exposed,tokens,runtime_retries
+P1,naive_retry,scripted:careful,1000,0.732,0.237,0.395,15414.75,1.0
+P1,naive_retry,scripted:naive,1000,0.54,0.353,0.436,14435.1,1.0
+P1,naive_retry,scripted:strong,1000,0.896,0.093,0.354,15553.71,1.0
+P1,none,scripted:careful,1000,0.818,0.136,0.833,17303.4,0.0
+P1,none,scripted:naive,1000,0.528,0.365,0.896,16243.02,0.0
+P1,none,scripted:strong,1000,0.928,0.041,0.806,17589.15,0.0
+P1,semantic,scripted:careful,1000,0.947,0.016,0.146,13877.55,0.48
+P1,semantic,scripted:naive,1000,0.834,0.047,0.156,12963.6,0.48
+P1,semantic,scripted:strong,1000,0.984,0.005,0.142,14176.71,0.48

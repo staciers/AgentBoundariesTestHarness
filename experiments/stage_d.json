@@ -1,0 +1,158 @@
+{
+  "name": "stage-d",
+  "_comment": "Stage D: runtime x policy factorial (separates P6's delegation effect from its runtime) plus P6 component ablation. Pre-registered in docs/preregistration/stage-d.md. All 15 scenarios x {no fault, hidden write} x 8 models x seeds 100-102. Do not change after the run starts.",
+  "scenarios": [
+    "travel/base",
+    "travel/ambiguous",
+    "travel/authority",
+    "commerce/base",
+    "commerce/ambiguous",
+    "commerce/authority",
+    "devops/base",
+    "devops/ambiguous",
+    "devops/authority",
+    "scheduling/base",
+    "scheduling/ambiguous",
+    "scheduling/authority",
+    "platform/base",
+    "platform/ambiguous",
+    "platform/authority"
+  ],
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-opus-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6.1-sol",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6-luna",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "alias": "deepseek-v4-pro-0813",
+      "effort": "high",
+      "input_price": 1.32,
+      "output_price": 3.96,
+      "cache_read_price": 0.13
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+      "alias": "deepseek-v4-flash-0731",
+      "effort": "high",
+      "input_price": 0.14,
+      "output_price": 0.28,
+      "cache_read_price": 0.03
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3",
+      "alias": "glm-5.3",
+      "effort": "high",
+      "input_price": 1.4,
+      "output_price": 4.4,
+      "cache_read_price": 0.26
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    }
+  ],
+  "fault_conditions": [
+    "none",
+    [
+      "timeout_after_execution",
+      "delayed_visibility"
+    ]
+  ],
+  "seeds": {
+    "start": 100,
+    "count": 3
+  },
+  "human": {
+    "latency_median_s": 90,
+    "latency_sigma": 0.8,
+    "cost_per_hour": 120,
+    "error_rate": 0.03,
+    "fatigue_per_request": 0.01
+  },
+  "workers": 6,
+  "keep_traces": true,
+  "principal_replies": 1,
+  "blocks": [
+    {
+      "_block": "factorial: 6 policies x runtime {none, semantic}",
+      "policies": [
+        "P1",
+        {
+          "name": "P3",
+          "threshold": 0.7
+        },
+        "P4",
+        "P5",
+        {
+          "name": "P6",
+          "threshold": 0.7
+        },
+        "ORACLE"
+      ],
+      "runtime_overrides": [
+        "none",
+        "semantic"
+      ]
+    },
+    {
+      "_block": "P6 components at the semantic runtime",
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "authority_gate": false
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "confidence_gate": false
+        }
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ]
+    },
+    {
+      "_block": "P6 routing at no runtime (where routing can fire)",
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "route": "agent"
+        }
+      ],
+      "runtime_overrides": [
+        "none"
+      ]
+    }
+  ]
+}

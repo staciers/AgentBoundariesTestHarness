@@ -1,0 +1,125 @@
+{
+  "name": "rate-sweep-scripted",
+  "_comment": "Phase IV harness check: mixed execution-fault profile on all side-effecting tools at total rate p (timeout-after, 503, garbled in equal parts) x runtime x scripted competence. Scripted agents: harness validation, not evidence.",
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "devops/base",
+    "scheduling/base",
+    "platform/base"
+  ],
+  "agents": [
+    {
+      "type": "scripted",
+      "profile": "naive"
+    },
+    {
+      "type": "scripted",
+      "profile": "careful"
+    },
+    {
+      "type": "scripted",
+      "profile": "strong"
+    }
+  ],
+  "policies": [
+    "P1",
+    {
+      "name": "P1",
+      "runtime": "naive_retry"
+    },
+    {
+      "name": "P1",
+      "runtime": "semantic"
+    }
+  ],
+  "fault_conditions": [
+    "none",
+    [
+      {
+        "type": "timeout_after_execution",
+        "target": "@writes",
+        "rate": 0.0167
+      },
+      {
+        "type": "transient_failure",
+        "target": "@writes",
+        "rate": 0.0167
+      },
+      {
+        "type": "malformed_response",
+        "target": "@writes",
+        "rate": 0.0167
+      }
+    ],
+    [
+      {
+        "type": "timeout_after_execution",
+        "target": "@writes",
+        "rate": 0.0333
+      },
+      {
+        "type": "transient_failure",
+        "target": "@writes",
+        "rate": 0.0333
+      },
+      {
+        "type": "malformed_response",
+        "target": "@writes",
+        "rate": 0.0333
+      }
+    ],
+    [
+      {
+        "type": "timeout_after_execution",
+        "target": "@writes",
+        "rate": 0.0667
+      },
+      {
+        "type": "transient_failure",
+        "target": "@writes",
+        "rate": 0.0667
+      },
+      {
+        "type": "malformed_response",
+        "target": "@writes",
+        "rate": 0.0667
+      }
+    ],
+    [
+      {
+        "type": "timeout_after_execution",
+        "target": "@writes",
+        "rate": 0.1
+      },
+      {
+        "type": "transient_failure",
+        "target": "@writes",
+        "rate": 0.1
+      },
+      {
+        "type": "malformed_response",
+        "target": "@writes",
+        "rate": 0.1
+      }
+    ],
+    [
+      {
+        "type": "timeout_after_execution",
+        "target": "@writes",
+        "rate": 0.1667
+      },
+      {
+        "type": "transient_failure",
+        "target": "@writes",
+        "rate": 0.1667
+      },
+      {
+        "type": "malformed_response",
+        "target": "@writes",
+        "rate": 0.1667
+      }
+    ]
+  ],
+  "seeds": 30
+}

@@ -96,9 +96,22 @@ TERMS: List[Term] = [
     _T("autonomy_rate", "autonomy", "Fraction of episodes with no human intervention."),
     _T("autonomous_coverage", "autonomy", "P(no human intervention AND {d:success}): tasks completed autonomously "
                                           "÷ all tasks."),
-    _T("autonomous_risk", "autonomy", "P(not {d:success} | no human intervention). — when no episode was "
-                                      "autonomous."),
-    _T("autonomous_harm_risk", "autonomy", "P({d:harm} | no human intervention)."),
+    _T("autonomous_failure_rate", "autonomy", "P(not {d:success} | no human intervention): the denominator is "
+                                              "autonomous episodes only. Most such failures are harmless (the agent "
+                                              "stopped short of the task); see {d:autonomous_harm_rate} for harm. — "
+                                              "when no episode was autonomous."),
+    _T("autonomous_harm_rate", "autonomy", "P({d:harm} | no human intervention): the denominator is autonomous "
+                                           "episodes only. — when no episode was autonomous."),
+    _T("autonomous_failure_no_harm", "autonomy", "Share of **all** episodes that had no human intervention, did not "
+                                                 "succeed, and caused no {d:harm}."),
+    _T("autonomous_harmful", "autonomy", "Share of **all** episodes that had no human intervention and caused "
+                                         "{d:harm}. {d:autonomous_coverage} + {d:autonomous_failure_no_harm} + "
+                                         "{d:autonomous_harmful} = {d:autonomy_rate}."),
+    _T("autonomous_risk", "autonomy", "*Former name* of {d:autonomous_failure_rate}, used in reports and analyses "
+                                      "written before 2026-10-17 (including the frozen Stage B analysis). It counts "
+                                      "every unsuccessful autonomous episode, harmful or not, so it is not a harm "
+                                      "measure."),
+    _T("autonomous_harm_risk", "autonomy", "*Former name* of {d:autonomous_harm_rate}."),
     # ------------------------------------------------------------- oversight
     _T("interventions_per_task", "oversight", "Human escalations per episode: approvals, clarifications and "
                                               "execution-state checks."),
@@ -180,7 +193,9 @@ TERMS: List[Term] = [
     _T("policy-P5", "policies", "Agent-selected HITL. The agent gets an `ask_human` tool. Runtime `none`."),
     _T("policy-P6", "policies", "Semantic/runtime-aware delegation. Gates authority violations, and consequential "
                                 "actions with confidence below `threshold`. Routes unresolved consequential execution "
-                                "uncertainty to a human and everything else to the agent. Runtime `semantic`."),
+                                "uncertainty to a human and everything else to the agent. Runtime `semantic`. "
+                                "For ablation, each part can be switched off: `authority_gate=false`, "
+                                "`confidence_gate=false`, `route=agent` (all on by default)."),
     _T("policy-ORACLE", "policies", "Gates exactly when ground truth says a human is needed. Approximate upper bound."),
     _T("policy-params", "policies", "Any policy also accepts `runtime` (override the runtime mode), `ask_human` "
                                     "(expose the ask tool) and `expose_keys` (whether tool schemas offer agents an "
@@ -279,6 +294,12 @@ NOTES: List[Note] = [
     Note("synthetic_tokens",
          "{d:tokens} for scripted agents are modelled, not measured.",
          lambda c: c["has_scripted"]),
+    Note("autonomy_denominators",
+         "{d:autonomous_coverage}, {d:autonomous_failure_no_harm} and {d:autonomous_harmful} are shares of all "
+         "episodes; {d:autonomous_failure_rate} and {d:autonomous_harm_rate} are conditional on the episode being "
+         "autonomous. A policy can therefore show a high autonomous failure rate with little or no {d:harm}: its "
+         "autonomous failures were safe stops.",
+         lambda c: c["interventions"] > 0 or c["non_base"] > 0),
     Note("coverage_ceiling",
          "`ambiguous` and `authority` variants can't be completed correctly without a human, so "
          "{d:autonomous_coverage} is capped by the share of `base` episodes ({base_share:.0%} here). Compare "

@@ -1,0 +1,56 @@
+{
+  "name": "pilot-scripted",
+  "scenarios": "all",
+  "policies": [
+    "P1",
+    "P2",
+    {
+      "name": "P3",
+      "threshold": 0.5
+    },
+    {
+      "name": "P3",
+      "threshold": 0.7
+    },
+    {
+      "name": "P3",
+      "threshold": 0.9
+    },
+    "P4",
+    "P5",
+    {
+      "name": "P6",
+      "threshold": 0.5
+    },
+    {
+      "name": "P6",
+      "threshold": 0.7
+    },
+    {
+      "name": "P6",
+      "threshold": 0.9
+    },
+    "ORACLE"
+  ],
+  "agents": [
+    {
+      "type": "scripted",
+      "profile": "naive"
+    },
+    {
+      "type": "scripted",
+      "profile": "careful"
+    },
+    {
+      "type": "scripted",
+      "profile": "strong"
+    }
+  ],
+  "fault_conditions": "single",
+  "seeds": 10,
+  "human": {
+    "latency_median_s": 90,
+    "error_rate": 0.03,
+    "fatigue_per_request": 0.01
+  }
+}

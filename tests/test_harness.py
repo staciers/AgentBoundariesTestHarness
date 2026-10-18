@@ -170,6 +170,22 @@ class TestPolicies(unittest.TestCase):
             for e in r["escalations"]:
                 self.assertTrue(e["necessary"], (s, e["trigger"]))
 
+    def test_p6_components_switch_off(self):
+        from abh.policies import make_policy
+        self.assertEqual(make_policy({"name": "P6"}).label, "P6")  # default keys unchanged
+        r = ep("travel/authority", {"name": "P6", "authority_gate": False}, "naive")
+        self.assertFalse(any(e["trigger"].startswith("authority") for e in r["escalations"]))
+        r = ep("travel/authority", {"name": "P6", "confidence_gate": False}, "naive")
+        self.assertTrue(any(e["trigger"].startswith("authority") for e in r["escalations"]))
+        self.assertFalse(any(e["trigger"] == "consequential_epistemic_uncertainty" for e in r["escalations"]))
+        hw = ["timeout_after_execution", "delayed_visibility"]
+        for route, human in (("human", True), ("agent", False)):
+            r = ep("travel/base", {"name": "P6", "route": route}, "naive", hw, runtime="none")
+            self.assertEqual(any(e["kind"] != "approval" and e["kind"] != "clarification"
+                                 for e in r["escalations"]), human, route)
+        with self.assertRaises(ValueError):
+            make_policy({"name": "P6", "route": "runtime"})
+
     def test_ask_human_only_when_exposed(self):
         r = ep("travel/base", "P1", "strong")
         self.assertFalse(any(e["kind"] == "clarification" for e in r["escalations"]))
@@ -453,6 +469,30 @@ class TestDefinitionsAndReport(unittest.TestCase):
         defs = set(re.findall(r"^\[\^([a-z_]+)\]:", text, re.M))
         self.assertEqual(refs, defs, "every footnote reference needs exactly one definition")
         return text, refs
+
+    def test_autonomy_metrics_separate_failure_from_harm(self):
+        from abh.metrics import summarize
+        base = dict(interventions=0, interventions_necessary=0, needs_total=0, needs_met=0, outcome="x",
+                    duplicate_effects=0, authority_violations=0, human_errors=0, model_calls=0, input_tokens=0,
+                    output_tokens=0, agent_tool_calls=0, service_invocations=0, runtime_retries=0,
+                    failures_exposed_to_agent=0, sim_duration_ms=0, human_wait_ms=0, model_cost_usd=0,
+                    human_cost_usd=0)
+        mk = lambda auto, ok, harm: dict(base, autonomous=auto, success=ok, harm=harm,
+                                         autonomous_success=auto and ok)
+        # 2 autonomous successes, 1 safe autonomous stop, 1 harmful autonomous episode, 2 escalated.
+        eps = [mk(True, True, False)] * 2 + [mk(True, False, False), mk(True, False, True)] + \
+              [mk(False, True, False)] * 2
+        s = summarize(eps)
+        self.assertAlmostEqual(s["autonomous_failure_rate"], 2 / 4)
+        self.assertAlmostEqual(s["autonomous_harm_rate"], 1 / 4)
+        self.assertAlmostEqual(s["autonomous_failure_no_harm"], 1 / 6)
+        self.assertAlmostEqual(s["autonomous_harmful"], 1 / 6)
+        self.assertAlmostEqual(s["autonomous_coverage"] + s["autonomous_failure_no_harm"] + s["autonomous_harmful"],
+                               s["autonomy_rate"])
+        # An oracle-like policy: autonomous failures that are all safe stops show no harm.
+        s = summarize([mk(True, True, False)] * 9 + [mk(True, False, False)])
+        self.assertAlmostEqual(s["autonomous_failure_rate"], 0.1)
+        self.assertEqual(s["autonomous_harm_rate"], 0.0)
 
     BASE = {"scenarios": ["travel/base"], "policies": ["P1", "P6"], "agents": [{"type": "scripted"}],
             "fault_conditions": ["none", ["timeout_after_execution", "delayed_visibility"]], "seeds": 2}

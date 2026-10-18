@@ -1,0 +1,13 @@
+variant,policy,n,success,harm,interventions_per_task,intervention_precision,intervention_recall
+ambiguous,ORACLE,40,0.65,0.0,0.525,1.0,0.4
+ambiguous,P2,40,0.625,0.0,1.95,0.28205128205128205,0.625
+ambiguous,P5,40,0.75,0.05,0.6,0.9166666666666666,0.55
+ambiguous,P6[threshold=0.7],40,0.2,0.1,0.0,nan,0.0
+authority,ORACLE,40,0.95,0.0,0.95,1.0,0.95
+authority,P2,40,0.9,0.0,1.85,0.4864864864864865,0.9
+authority,P5,40,0.975,0.025,1.0,0.975,0.975
+authority,P6[threshold=0.7],40,0.925,0.0,0.95,0.9736842105263158,0.925
+base,ORACLE,40,1.0,0.0,0.0,nan,nan
+base,P2,40,1.0,0.0,1.8,0.0,nan
+base,P5,40,1.0,0.0,0.0,nan,nan
+base,P6[threshold=0.7],40,1.0,0.0,0.0,nan,nan

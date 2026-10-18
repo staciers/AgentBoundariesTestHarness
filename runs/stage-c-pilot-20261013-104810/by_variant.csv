@@ -1,0 +1,4 @@
+variant,policy,n,success,harm,interventions_per_task,intervention_precision,intervention_recall
+base,P1,6,1.0,0.0,0.0,nan,nan
+base,P1[expose_keys=False],14,0.5,0.5,0.0,nan,nan
+base,P1[runtime=semantic],28,1.0,0.0,0.0,nan,nan

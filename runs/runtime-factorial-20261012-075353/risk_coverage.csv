@@ -1,0 +1,4 @@
+policy,policy_name,agent,n,autonomous_coverage,autonomous_risk,harm,success,interventions_per_task
+P1,P1,scripted:careful,3000,0.8323333333333334,0.16766666666666666,0.12966666666666668,0.8323333333333334,0.0
+P1,P1,scripted:naive,3000,0.634,0.366,0.255,0.634,0.0
+P1,P1,scripted:strong,3000,0.936,0.064,0.04633333333333333,0.936,0.0

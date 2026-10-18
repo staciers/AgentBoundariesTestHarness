@@ -1,0 +1,5 @@
+policy,policy_name,agent,n,autonomous_coverage,autonomous_risk,harm,success,interventions_per_task
+P1[runtime=semantic],P1,together:deepseek-v4-flash-0731@high,63,1.0,0.0,0.0,1.0,0.0
+P1[runtime=semantic],P1,together:deepseek-v4-pro-0813@high,63,1.0,0.0,0.0,1.0,0.0
+P1[runtime=semantic],P1,together:glm-5.3-flash@high,63,1.0,0.0,0.0,1.0,0.0
+P1[runtime=semantic],P1,together:glm-5.3@high,63,1.0,0.0,0.0,1.0,0.0

@@ -2,6 +2,18 @@
 # evidence for the paper, one line each: `runs/*` (not `runs/`) lets them be re-included.
 runs/*
 !runs/compound-confirm-20261012-112744/
+!runs/compound-live-20261011-123250/
+!runs/stage-a-pilot-20261013-093242/
+!runs/stage-a-20261013-101143/
+!runs/stage-c-pilot-20261013-104810/
+!runs/stage-c-20261013-112552/
+!runs/open-pilot-20261013-143116/
+!runs/open-confirm-20261014-081413/
+!runs/open-stage-a-20261014-081413/
+!runs/stage-b-pilot-20261014-135034/
+!runs/stage-b-pilot-recheck-20261014-141145/
+!runs/stage-b-20261015-075812/
+!runs/stage-b-20261015-075812-sensitivity/
 __pycache__/
 *.pyc
 .venv/

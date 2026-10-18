@@ -1,0 +1,85 @@
+{
+  "name": "stage-c-pilot",
+  "_comment": "Pilot for Stage C: one seed per frontier-model cell, to check API access (Fable requires 30-day retention), behaviour and cost. Not analysed.",
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "devops/base",
+    "scheduling/base",
+    "platform/base"
+  ],
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-fable-5-1",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6-astra",
+      "effort": "high"
+    }
+  ],
+  "seeds": {
+    "start": 900,
+    "count": 1
+  },
+  "workers": 4,
+  "keep_traces": true,
+  "blocks": [
+    {
+      "fault_conditions": [
+        [
+          "timeout_after_execution",
+          "delayed_visibility"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "expose_keys": false
+        }
+      ],
+      "scenarios": [
+        "travel/base",
+        "commerce/base",
+        "devops/base",
+        "scheduling/base"
+      ]
+    },
+    {
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        "P1",
+        {
+          "name": "P1",
+          "expose_keys": false
+        }
+      ],
+      "scenarios": [
+        "travel/base",
+        "commerce/base",
+        "devops/base",
+        "scheduling/base"
+      ]
+    },
+    {
+      "fault_conditions": [
+        "precondition_changed",
+        "task_invalid_result",
+        "persistent_unavailable"
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "runtime": "semantic"
+        }
+      ]
+    }
+  ]
+}

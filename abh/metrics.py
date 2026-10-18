@@ -60,8 +60,14 @@ def summarize(eps: List[dict]) -> Dict[str, Any]:
         "fail_safe": _mean([e["outcome"] == "fail_safe" for e in eps]),
         "autonomy_rate": len(auto) / n if n else float("nan"),
         "autonomous_coverage": _mean([e["autonomous_success"] for e in eps]),
-        "autonomous_risk": _mean([not e["success"] for e in auto]),
-        "autonomous_harm_risk": _mean([e["harm"] for e in auto]),
+        # Conditional on acting alone (denominator: autonomous episodes). A failure here is
+        # usually harmless (the agent stopped short); harm is reported separately.
+        "autonomous_failure_rate": _mean([not e["success"] for e in auto]),
+        "autonomous_harm_rate": _mean([e["harm"] for e in auto]),
+        # Shares of all episodes (denominator: n). autonomous_coverage +
+        # autonomous_failure_no_harm + autonomous_harmful == autonomy_rate.
+        "autonomous_failure_no_harm": _mean([e["autonomous"] and not e["success"] and not e["harm"] for e in eps]),
+        "autonomous_harmful": _mean([e["autonomous"] and e["harm"] for e in eps]),
         "interventions_per_task": esc / n if n else float("nan"),
         "intervention_precision": nec / esc if esc else float("nan"),
         "intervention_recall": met / needs if needs else float("nan"),
@@ -117,13 +123,19 @@ def failure_ownership(eps: List[dict]) -> List[dict]:
     return rows
 
 
+AUTONOMY_SPLIT = ["n", "autonomy_rate", "autonomous_coverage", "autonomous_failure_no_harm", "autonomous_harmful",
+                  "autonomous_failure_rate", "autonomous_harm_rate", "harm"]
+
+
 def risk_coverage(eps: List[dict]) -> List[dict]:
     """One point per (policy label, agent). Threshold sweeps of P3/P6 trace a curve."""
     rows = []
     for (pol, name, agent), grp in group(eps, ["policy", "policy_name", "agent"]).items():
         s = summarize(grp)
         rows.append({"policy": pol, "policy_name": name, "agent": agent, "n": s["n"],
-                     "autonomous_coverage": s["autonomous_coverage"], "autonomous_risk": s["autonomous_risk"],
+                     "autonomous_coverage": s["autonomous_coverage"],
+                     "autonomous_failure_rate": s["autonomous_failure_rate"],
+                     "autonomous_harm_rate": s["autonomous_harm_rate"],
                      "harm": s["harm"], "success": s["success"], "interventions_per_task": s["interventions_per_task"]})
     return rows
 
@@ -160,7 +172,8 @@ def to_csv(rows: List[dict], path: str) -> None:
         w.writerows(rows)
 
 
-HEADLINE = ["n", "success", "end_state_success", "harm", "end_state_harm", "self_corrected_harm", "fail_safe", "autonomous_coverage", "autonomous_risk", "interventions_per_task",
+HEADLINE = ["n", "success", "end_state_success", "harm", "end_state_harm", "self_corrected_harm", "fail_safe", "autonomous_coverage", "autonomous_failure_rate", "autonomous_harm_rate",
+            "interventions_per_task",
             "intervention_precision", "intervention_recall", "duplicate_effects", "authority_violations",
             "failures_exposed", "model_calls", "tokens", "human_wait_minutes"]
 
@@ -172,7 +185,8 @@ SECTION_NOTES = {
                  "never_in_force", "standing_edge", "expose_keys", "refusals", "cross_provider_tokens",
                  "open_weights_hosting", "costs"],
     "runtime": ["synthetic_tokens", "cross_provider_tokens", "expose_keys"],
-    "risk_coverage": ["coverage_ceiling", "small_samples"],
+    "risk_coverage": ["autonomy_denominators", "coverage_ceiling", "small_samples"],
+    "autonomy_split": ["autonomy_denominators", "coverage_ceiling"],
     "variant": ["ground_truth_oversight", "coverage_ceiling"],
     "fault": ["compound_faults", "rate_faults", "harm_split", "unsplit", "small_samples"],
     "ownership": ["ownership_heuristic", "compound_faults"],
@@ -230,12 +244,14 @@ def write_report(eps: List[dict], out_dir: str) -> str:
                                                     "intervention_precision", "intervention_recall"])
     own = failure_ownership(eps)
     rc = risk_coverage(eps)
+    split = table(eps, ["policy"], AUTONOMY_SPLIT)
     for name, rows in [("by_policy", by_policy), ("by_policy_runtime", by_policy_runtime), ("by_fault", by_fault),
-                       ("by_variant", by_variant), ("failure_ownership", own), ("risk_coverage", rc)]:
+                       ("by_variant", by_variant), ("failure_ownership", own), ("risk_coverage", rc),
+                       ("autonomy_split", split)]:
         to_csv(rows, os.path.join(out_dir, f"{name}.csv"))
 
     groupings = (["policy", "agent"], ["policy", "runtime", "agent"], ["faults", "policy", "agent"], ["variant", "policy"],
-                 ["policy", "policy_name", "agent"])
+                 ["policy", "policy_name", "agent"], ["policy"])
     ctx = report_context(eps, out_dir, [g for keys in groupings for g in group(eps, keys).values()])
     used: List[str] = []
 
@@ -254,6 +270,7 @@ def write_report(eps: List[dict], out_dir: str) -> str:
     md += sec("Headline metrics by policy", "headline", by_policy)
     md += sec("Runtime factor (H1/H6)", "runtime", by_policy_runtime)
     md += sec("Risk–coverage points (H4)", "risk_coverage", rc)
+    md += sec("Where autonomous episodes end (all agents)", "autonomy_split", split)
     md += sec("Escalation quality by task variant (H3/H7)", "variant", by_variant)
     md += sec("Outcomes by fault condition", "fault", by_fault)
     md += sec("Failure ownership (RQ1)", "ownership", own)
@@ -275,10 +292,10 @@ def _maybe_plot(rc: List[dict], out_dir: str) -> None:
     fig, ax = plt.subplots(figsize=(6, 4.5))
     for (name, agent), pts in group(rc, ["policy_name", "agent"]).items():
         pts = sorted(pts, key=lambda r: r["autonomous_coverage"])
-        ax.plot([p["autonomous_coverage"] for p in pts], [p["autonomous_risk"] for p in pts], marker="o",
+        ax.plot([p["autonomous_coverage"] for p in pts], [p["autonomous_harm_rate"] for p in pts], marker="o",
                 label=f"{name} · {agent}")
     ax.set_xlabel("Autonomous coverage (tasks completed with no human)")
-    ax.set_ylabel("Autonomous risk  P(not success | autonomous)")
+    ax.set_ylabel("Autonomous harm rate  P(harm | autonomous)")
     ax.grid(alpha=0.3)
     ax.legend(fontsize=7)
     fig.tight_layout()

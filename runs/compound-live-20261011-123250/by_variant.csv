@@ -1,0 +1,4 @@
+variant,policy,n,success,harm,interventions_per_task,intervention_precision,intervention_recall
+base,P1,132,0.9318181818181818,0.06818181818181818,0.0,nan,nan
+base,P1[expose_keys=False],132,0.7272727272727273,0.2727272727272727,0.0,nan,nan
+base,P6[threshold=0.7],132,1.0,0.0,0.0,nan,nan

@@ -1,0 +1,1 @@
+{"error": "AttributeError: 'str' object has no attribute 'get'", "scenario": "platform/base", "key": "9e3cedef96cf4c9c"}

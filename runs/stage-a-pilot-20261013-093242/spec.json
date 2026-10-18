@@ -1,0 +1,60 @@
+{
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "devops/base",
+    "scheduling/base",
+    "platform/base"
+  ],
+  "workers": 4,
+  "keep_traces": true,
+  "name": "stage-a-pilot",
+  "_comment": "Pilot for Stage A: one seed of the main arm to catch scenario bugs and measure cost. Not analysed.",
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-opus-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6.1-sol",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6-luna",
+      "effort": "high"
+    }
+  ],
+  "seeds": {
+    "start": 900,
+    "count": 1
+  },
+  "fault_conditions": [
+    "none",
+    "precondition_changed",
+    "task_invalid_result",
+    "persistent_unavailable",
+    "timeout_before_execution",
+    "timeout_after_execution",
+    "transient_failure",
+    "rate_limited",
+    "malformed_response",
+    "partial_response",
+    "delayed_visibility",
+    "duplicate_execution",
+    "partial_mutation"
+  ],
+  "policies": [
+    {
+      "name": "P1",
+      "runtime": "semantic"
+    }
+  ]
+}
