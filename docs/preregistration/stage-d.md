@@ -138,7 +138,21 @@ cheapest models). The pilot's measured cost replaces this estimate before regist
 
 ## Pilot findings
 
-*(To be filled in after the pilot, before registration.)*
+The pilot (`runs/stage-d-pilot-20261018-104306`) ran 300 episodes (Haiku and GLM-5.3-Flash,
+seed 900) for **$0.38**: $0.16 Anthropic, $0.23 Together.
+- **No defects found:** no harness or agent errors, and every GLM response was served by
+  `zai-org/GLM-5.3-Flash`.
+- Outcomes were inspected only to check that each new switch does what it says, by counting
+  escalation triggers per arm:
+  - `authority_gate=false`: no authority escalations.
+  - `confidence_gate=false`: no confidence escalations; the authority gate still fired.
+  - `route=agent` at runtime `none`: no execution-state escalations, vs 22 in the 60 P6 episodes
+    at runtime `none`.
+  - With the gate on, the confidence gate fired once in 120 P6 episodes, consistent with Stage B.
+- **No change to the design, hypotheses or tests.**
+
+**Cost re-estimate:** Stage B's measured per-model costs × 1,350 episodes per model give
+**$94**: $52 Anthropic, $15 OpenAI, $27 Together.
 
 ### Deviations
 

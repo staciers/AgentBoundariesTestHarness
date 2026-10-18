@@ -18,3 +18,4 @@ __pycache__/
 *.pyc
 .venv/
 *.egg-info/
+!runs/stage-d-pilot-20261018-104306/
