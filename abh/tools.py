@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from .contract import describe_key
 from .semantics import ActionSemantics, READ_ONLY
 from .world import World
 
@@ -69,6 +70,7 @@ class InvocationContext:
     idempotency_key: Optional[str] = None
     attempt: int = 1
     partial: bool = False  # set by fault injector: commit only the first part
+    contract: Any = None   # the tool's ExecutionContract for this episode (abh.contract)
 
 
 Handler = Callable[[World, dict, InvocationContext], dict]
@@ -98,13 +100,14 @@ class ToolSpec:
 
     def input_schema(self, extra: Optional[Dict[str, dict]] = None,
                      extra_required: Optional[List[str]] = None, expose_key: bool = True,
-                     key_description: str = "at_most_once") -> dict:
+                     key_description: str = "at_most_once", contract: Any = None) -> dict:
         props = dict(self.params)
         req = list(self.required)
         if self.semantics.supports_idempotency_key and expose_key:
             props["idempotency_key"] = {
                 "type": "string",
-                "description": KEY_DESCRIPTIONS[key_description],
+                "description": (describe_key(contract) if key_description == "contract"
+                                else KEY_DESCRIPTIONS[key_description]),
             }
         if extra:
             props.update(extra)
@@ -115,13 +118,21 @@ class ToolSpec:
     def execute(self, world: World, args: dict, ctx: InvocationContext) -> dict:
         """Service-side execution with server-enforced idempotency keys."""
         key = ctx.idempotency_key if self.semantics.supports_idempotency_key else None
+        atomic = key and ctx.contract is not None and ctx.contract.key_scope.value == "atomic"
         if key:
             prior = world.get(f"_idem:{self.name}", key, visible=False)
             if prior is not None:
+                if "partial_error" in prior:  # atomic scope: replay the original partial outcome
+                    raise PartialFailure(f"A request with this idempotency key already failed partway and was not "
+                                         f"executed again. Original error: {prior['partial_error']}")
                 return dict(prior["response"])
         clean = {k: v for k, v in args.items() if k != "idempotency_key"}
         try:
             resp = self.handler(world, clean, ctx)
+        except PartialFailure as e:
+            if atomic:  # the key is recorded with the committed part
+                world.put(f"_idem:{self.name}", key, {"partial_error": str(e)})
+            raise
         except ToolError:
             raise
         except (KeyError, TypeError, ValueError, AttributeError, IndexError) as e:
@@ -138,6 +149,7 @@ class ToolSpec:
 # drives over-trust. The service behaves identically under all three: it records a key
 # only when a request completes.
 KEY_DESCRIPTIONS = {
+    "contract": None,  # generated from the tool's execution contract (abh.contract.describe_key)
     "at_most_once": "Optional client-supplied key. Requests repeated with the same key are executed at most once.",
     "neutral": "Optional client-supplied request identifier.",
     "caveated": ("Optional client-supplied key. A request repeated with the same key is not executed again if the "

@@ -11,6 +11,7 @@ Spec (JSON)::
       "agents": [{"type": "scripted", "profile": "careful"}],
       "fault_conditions": "single",                      # none + each fault type alone
       "runtime_overrides": [null],                       # e.g. [null, "semantic"] crosses runtime x policy
+      "contract_overrides": [null],                      # e.g. [null, {"key_scope": "atomic"}] (abh.contract)
       "seeds": 5,                      # int -> range(n), explicit list, or {"start": 100, "count": 30}
       "human": {"latency_median_s": 90},
       "max_turns": 30, "workers": 4, "keep_traces": false,
@@ -115,12 +116,15 @@ def expand(spec: Dict[str, Any]) -> Iterator[EpisodeConfig]:
                 raise ValueError(f"fault condition {fault_label(cond)} on {sid}: {e}") from None
             for pol in spec.get("policies", ["P1"]):
                 for rt in spec.get("runtime_overrides", [None]):
-                    for ag in spec.get("agents", ["scripted"]):
-                        for seed in seeds:
-                            yield EpisodeConfig(scenario=sid, policy=pol, agent=ag, faults=[f.to_dict() for f in cond],
-                                                fault_label=fault_label(cond), runtime=rt, human=spec.get("human"),
-                                                seed=seed, max_turns=spec.get("max_turns", 30),
-                                                principal_replies=int(spec.get("principal_replies", 0)))
+                    for ct in spec.get("contract_overrides", [None]):
+                        for ag in spec.get("agents", ["scripted"]):
+                            for seed in seeds:
+                                yield EpisodeConfig(scenario=sid, policy=pol, agent=ag,
+                                                    faults=[f.to_dict() for f in cond], fault_label=fault_label(cond),
+                                                    runtime=rt, human=spec.get("human"), seed=seed,
+                                                    max_turns=spec.get("max_turns", 30),
+                                                    principal_replies=int(spec.get("principal_replies", 0)),
+                                                    contract=ct or None)
 
 
 def episode_key(c: EpisodeConfig) -> str:
@@ -128,6 +132,8 @@ def episode_key(c: EpisodeConfig) -> str:
              c.faults, c.runtime, c.human, c.seed]
     if c.principal_replies:  # only when used, so earlier episode keys are unchanged
         parts.append({"principal_replies": c.principal_replies})
+    if c.contract:  # likewise
+        parts.append({"contract": c.contract})
     blob = json.dumps(parts, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode()).hexdigest()[:16]
 

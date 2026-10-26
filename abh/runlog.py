@@ -47,7 +47,7 @@ def code_version() -> Dict[str, Any]:
     dirty = _git("status", "--porcelain", "--", *CODE_PATHS)
     return {"git_commit": sha, "git_short": sha[:7] if sha else None,
             "clean": (dirty == "") if dirty is not None else None,
-            "dirty_paths": [ln[3:] for ln in dirty.splitlines()] if dirty else []}
+            "dirty_paths": [ln.split(None, 1)[1] for ln in dirty.splitlines() if ln.strip()] if dirty else []}
 
 
 def _versions() -> Dict[str, Optional[str]]:

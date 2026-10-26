@@ -13,6 +13,7 @@ from .faults import FaultInjector, FaultSpec, validate_compound
 from .human import HumanConfig, make_human
 from .policies import ControlPolicy, make_policy
 from .runtime import ReliabilityRuntime, RuntimeConfig
+from .contract import Contracts, override_label
 from .trace import Trace
 from .world import SimClock, World
 
@@ -32,6 +33,9 @@ class EpisodeConfig:
     # without committing any side effect while a principal-only ambiguity was still open.
     # 0 (default) keeps the original behaviour: a final reply ends the episode.
     principal_replies: int = 0
+    # Execution-contract overrides applied to every tool, e.g. {"key_scope": "atomic"} (see
+    # abh.contract). None keeps each tool's default contract, i.e. the original behaviour.
+    contract: Optional[Dict[str, Any]] = None
 
 
 def fault_label(faults: List[FaultSpec]) -> str:
@@ -61,7 +65,7 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
         specs += [FaultSpec(spec.type, tool, spec.on_call, spec.times, spec.params, spec.rate) for tool in tools]
     validate_compound(specs)
     injector = FaultInjector(specs, scenario.semantic_faults, seed=cfg.seed)
-    runtime = ReliabilityRuntime(rcfg, world, injector, trace)
+    runtime = ReliabilityRuntime(rcfg, world, injector, trace, Contracts(cfg.contract))
     human = make_human(hcfg, scenario.oracle, random.Random(rng.random()))
     cp = ControlPlane(scenario, policy, runtime, human, world, trace, injector)
 
@@ -168,6 +172,7 @@ def _evaluate(cfg, scenario, policy, agent, rcfg, world, cp: ControlPlane, injec
         "faults_injected": [f.to_dict() for f in injector.injected],
         "escalations": [e.to_dict() for e in cp.escalations],
         "termination": termination, "agent_error": agent_error, "final_message": final,
+        "contract": override_label(cfg.contract),
         "principal_replies_used": sum(1 for e in cp.escalations if e.request.trigger == "principal_reply"),
         **(dict(agent.api_stats) if getattr(agent, "api_stats", None) is not None else {}),
         "trace": trace.to_list() if trace is not None else None,

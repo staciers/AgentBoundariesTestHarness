@@ -75,6 +75,26 @@ A rule without `standing` is treated as always in force (conservative). Known ed
 `standing` looks at the whole end state, so an *approved* over-limit commitment combined
 with a cancelled unapproved duplicate would count as standing.
 
+## Execution contracts
+
+Each tool has an `ExecutionContract` ([`abh/contract.py`](../abh/contract.py)) declaring:
+- what an idempotency key covers: `none`, `completed` (recorded only when a request completes),
+  or `atomic` (recorded with any committed part; a retry returns the original outcome)
+- whether a request can commit partly
+- how long writes may stay invisible to reads
+- whether the tool offers reconciliation by key, a postcondition, and compensation
+
+How the contract is used:
+- **Services** enforce the key scope (`ToolSpec.execute`).
+- **The runtime** reads the contract to decide whether a keyed replay is safe.
+- **Policies** can generate the key's description from it (`key_description: "contract"`).
+- **`mcp_annotations`** lists which fields MCP tool annotations can't express.
+
+By default, contracts are derived from each tool's `ActionSemantics` (key scope `completed`),
+which reproduces every earlier study exactly. A spec can vary them for all tools with
+`"contract_overrides": [null, {"key_scope": "atomic"}]`. Overrides enter the episode key only
+when set, and each result records them in `contract`.
+
 ## Run records: manifest, status, re-runs
 
 The runner keeps its own records in the run directory ([`abh/runlog.py`](../abh/runlog.py)), so a

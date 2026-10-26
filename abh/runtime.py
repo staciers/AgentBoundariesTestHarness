@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from .faults import FaultInjector, MalformedPayload
 from .semantics import ExecutionState, FailureClass
+from .contract import Contracts
 from .tools import (BusinessError, InvalidRequest, InvocationContext, PartialFailure,
                     RateLimited, ServiceUnavailable, ToolError, ToolSpec, ToolTimeout)
 from .trace import Trace
@@ -85,8 +86,10 @@ def _well_formed(tool: ToolSpec, resp: Any) -> bool:
 
 
 class ReliabilityRuntime:
-    def __init__(self, cfg: RuntimeConfig, world: World, injector: FaultInjector, trace: Trace):
+    def __init__(self, cfg: RuntimeConfig, world: World, injector: FaultInjector, trace: Trace,
+                 contracts: Optional[Contracts] = None):
         self.cfg = cfg
+        self.contracts = contracts or Contracts()
         self.world = world
         self.injector = injector
         self.trace = trace
@@ -108,7 +111,7 @@ class ReliabilityRuntime:
         max_attempts = 1 + (self.cfg.max_retries if retry else 0)
         for attempt in range(1, max_attempts + 1):
             out.attempts = attempt
-            ctx = InvocationContext(call_id, key, attempt)
+            ctx = InvocationContext(call_id, key, attempt, contract=self.contracts.of(tool))
             try:
                 resp = self.injector.invoke(tool, args, self.world, ctx)
             except (BusinessError, InvalidRequest) as e:
@@ -159,14 +162,15 @@ class ReliabilityRuntime:
     # ------------------------------------------------------------ semantic
     def _semantic(self, tool: ToolSpec, args: dict, call_id: str) -> Outcome:
         sem = tool.semantics
-        key = args.get("idempotency_key") or (f"rt-{call_id}" if sem.supports_idempotency_key else None)
+        c = self.contracts.of(tool)
+        key = args.get("idempotency_key") or (f"rt-{call_id}" if c.keyed else None)
         out = Outcome(call_id, tool.name, ExecutionState.NOT_EXECUTED, idempotency_key=key)
-        if key and sem.supports_idempotency_key and "idempotency_key" not in args:
+        if key and c.keyed and "idempotency_key" not in args:
             out.runtime_actions.append("attach_idempotency_key")
         last_err: Optional[ToolError] = None
         for attempt in range(1, self.cfg.max_retries + 2):
             out.attempts = attempt
-            ctx = InvocationContext(call_id, key, attempt)
+            ctx = InvocationContext(call_id, key, attempt, contract=self.contracts.of(tool))
             try:
                 resp = self.injector.invoke(tool, args, self.world, ctx)
             except (BusinessError, InvalidRequest) as e:
@@ -191,10 +195,12 @@ class ReliabilityRuntime:
                 if found is not None:
                     return self._success(tool, args, found, out)
                 if key or sem.idempotent:
-                    if (sem.multipart and not sem.idempotent and self.cfg.compensate_partial
+                    if (c.retry_may_duplicate_partial and self.cfg.compensate_partial
                             and tool.compensate and sem.compensable):
                         # A timeout can hide a partial commit that the key store never
-                        # recorded; undo any incomplete attempt before replaying.
+                        # recorded (key scope "completed"); undo any incomplete attempt
+                        # before replaying. Under an atomic key scope the replay returns the
+                        # original outcome instead, so this isn't needed.
                         tool.compensate(self.world, args, key or call_id)
                         out.runtime_actions.append("compensate_unknown_partial")
                     out.runtime_actions.append("safe_retry_with_key" if key else "retry_idempotent")

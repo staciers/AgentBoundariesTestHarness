@@ -529,6 +529,8 @@ class TestAblationAndBlocks(unittest.TestCase):
         from abh.tools import KEY_DESCRIPTIONS
         self.assertIn("at most once", self.schema("P1")["idempotency_key"]["description"])
         for wording, text in KEY_DESCRIPTIONS.items():
+            if text is None:  # "contract": generated per tool, see TestContracts
+                continue
             got = self.schema({"name": "P1", "key_description": wording})["idempotency_key"]["description"]
             self.assertEqual(got, text)
         with self.assertRaises(ValueError):
@@ -1035,3 +1037,80 @@ class TestRequestPolicyAndPools(unittest.TestCase):
             self.assertEqual(len(load_episodes(os.path.join(out, "episodes.jsonl"))), 12)
             m = json.load(open(os.path.join(out, "manifest.json")))
             self.assertEqual(m["launches"][0]["workers"], {"scripted": 3})
+
+
+class TestContracts(unittest.TestCase):
+    def test_default_contracts_match_semantics(self):
+        from abh.contract import KeyScope, PartialEffects, contract_of
+        for sid in list_scenarios():
+            for t in make_scenario(sid).tools:
+                c = contract_of(t)
+                self.assertEqual(c.keyed, t.semantics.supports_idempotency_key, t.name)
+                if c.keyed:
+                    self.assertIs(c.key_scope, KeyScope.COMPLETED)
+                self.assertEqual(c.partial_effects is PartialEffects.PERSIST, t.semantics.multipart, t.name)
+
+    def test_atomic_scope_makes_keyed_retry_safe(self):
+        # An agent that keys every write and retries a timeout without checking state.
+        blind = {"type": "scripted", "profile": "naive", "use_idempotency_keys": 1.0}
+        fs = [FaultSpec.parse(f).to_dict() for f in ("partial_mutation", "timeout_after_execution")]
+        dups = {}
+        for scope in (None, {"key_scope": "atomic"}):
+            rs = [run_episode(EpisodeConfig(sc, "P1", blind, fs, "pc", None, None, seed, contract=scope))
+                  for sc in ("travel/base", "commerce/base", "devops/base") for seed in range(5)]
+            dups[str(scope)] = sum(r["duplicate_effects"] > 0 for r in rs)
+            self.assertEqual({r["contract"] for r in rs}, {"default" if scope is None else "key_scope=atomic"})
+        self.assertGreater(dups["None"], 0)
+        self.assertEqual(dups[str({"key_scope": "atomic"})], 0)
+
+    def test_service_replays_partial_outcome_under_atomic_scope(self):
+        from abh.contract import Contracts
+        from abh.tools import InvocationContext, PartialFailure
+        for scope, reruns in (("completed", True), ("atomic", False)):
+            sc, w, rt, inj = runtime_for("travel/base", "none", [])
+            tool = {t.name: t for t in sc.tools}["book_trip"]
+            c = Contracts({"key_scope": scope}).of(tool)
+            ctx = InvocationContext("c1", "K1", 1, partial=True, contract=c)
+            with self.assertRaises(PartialFailure):
+                tool.execute(w, dict(TRIP, idempotency_key="K1"), ctx)
+            before = len(w.effects)
+            ctx2 = InvocationContext("c2", "K1", 2, contract=c)
+            if reruns:
+                tool.execute(w, dict(TRIP, idempotency_key="K1"), ctx2)
+                self.assertGreater(len(w.effects), before)        # the committed part ran again
+                self.assertGreater(w.duplicate_effects(), 0)
+            else:
+                with self.assertRaises(PartialFailure):           # original outcome, nothing re-executed
+                    tool.execute(w, dict(TRIP, idempotency_key="K1"), ctx2)
+                self.assertEqual(len(w.effects), before)
+
+    def test_generated_descriptions_state_scope(self):
+        from abh.contract import Contracts, describe_key
+        sc, *_ = runtime_for("travel/base", "none", [])
+        tool = {t.name: t for t in sc.tools}["book_trip"]
+        completed = describe_key(Contracts().of(tool))
+        atomic = describe_key(Contracts({"key_scope": "atomic"}).of(tool))
+        self.assertIn("failed partway is not recorded", completed)
+        self.assertIn("including when the original failed partway", atomic)
+        self.assertNotIn("at most once", completed + atomic)
+        reader = {t.name: t for t in sc.tools if t.semantics.read_only}
+        self.assertIsNone(describe_key(Contracts().of(next(iter(reader.values())))))
+
+    def test_mcp_annotations_lose_scope(self):
+        from abh.contract import Contracts, mcp_annotations
+        sc, *_ = runtime_for("travel/base", "none", [])
+        m = mcp_annotations(Contracts().of({t.name: t for t in sc.tools}["book_trip"]))
+        self.assertEqual(set(m["annotations"]), {"readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"})
+        self.assertIn("key_scope", m["lost"])
+        self.assertIn("partial_effects", m["lost"])
+
+    def test_overrides_validated_and_keys_unchanged_by_default(self):
+        from abh.contract import Contracts
+        from abh.experiment import episode_key
+        with self.assertRaises(ValueError):
+            Contracts({"reversible": True})
+        base = EpisodeConfig("travel/base", "P1", {"type": "scripted"}, [], "none", None, None, 0)
+        import dataclasses
+        self.assertEqual(episode_key(base), episode_key(dataclasses.replace(base, contract=None)))
+        self.assertNotEqual(episode_key(base), episode_key(dataclasses.replace(base, contract={"key_scope": "atomic"})))
+

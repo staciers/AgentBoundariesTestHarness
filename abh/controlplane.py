@@ -15,6 +15,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from .contract import contract_of
 from .domains.base import Scenario
 from .faults import FaultInjector
 from .human import EscalationKind, EscalationRequest, HumanResponse, SimulatedHuman
@@ -100,6 +101,10 @@ class ControlPlane:
         self.outcomes: List[Outcome] = []
 
     # ------------------------------------------------------------ schemas
+    def _contract(self, tool):
+        contracts = getattr(self.runtime, "contracts", None)
+        return contracts.of(tool) if contracts is not None else contract_of(tool)
+
     def tool_schemas(self) -> List[dict]:
         extra, req = None, None
         if self.policy.require_confidence:
@@ -109,7 +114,8 @@ class ControlPlane:
             req = ["confidence"]
         out = [{"name": t.name, "description": t.description,
                 "input_schema": t.input_schema(extra, req, expose_key=self.policy.expose_keys,
-                                               key_description=self.policy.key_description)}
+                                               key_description=self.policy.key_description,
+                                               contract=self._contract(t))}
                for t in self.tools]
         if self.policy.expose_ask_human:
             out.append(ask_human_schema())
