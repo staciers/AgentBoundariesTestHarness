@@ -1096,6 +1096,16 @@ class TestContracts(unittest.TestCase):
         reader = {t.name: t for t in sc.tools if t.semantics.read_only}
         self.assertIsNone(describe_key(Contracts().of(next(iter(reader.values())))))
 
+    def test_trace_records_tool_schemas_as_shown(self):
+        r = run_episode(EpisodeConfig("travel/base", {"name": "P1", "key_description": "contract"},
+                                      {"type": "scripted"}, [], "none", None, None, 0,
+                                      contract={"key_scope": "atomic"}))
+        start = next(ev for ev in r["trace"] if ev.get("kind", ev.get("event")) == "episode_start"
+                     or "tool_schemas" in ev)
+        text = json.dumps(start)
+        self.assertIn("including when the original failed partway", text)
+        self.assertIn("key_scope=atomic", text)
+
     def test_mcp_annotations_lose_scope(self):
         from abh.contract import Contracts, mcp_annotations
         sc, *_ = runtime_for("travel/base", "none", [])

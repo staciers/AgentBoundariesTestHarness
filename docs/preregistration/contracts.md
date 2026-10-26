@@ -147,7 +147,29 @@ replaces this estimate before registration.
 
 ## Pilot findings
 
-*(To be filled in after the pilot, before registration.)*
+The pilot (`runs/contracts-pilot-20261026-131823`, code `d09d7c3`, clean tree) ran 90 episodes
+on Haiku and GLM-5.3-Flash, seeds 900–904, for **$0.13** ($0.06 Anthropic, $0.07 Together).
+- **Execution:** no harness or agent errors, and no API retries or timeouts. Every GLM response
+  came from `zai-org/GLM-5.3-Flash`.
+- **Coverage:** the partial-commit fault reached travel, commerce and devops, as designed.
+  Scheduling has no multi-part write, so it contributes only to the sanity block.
+- **The new mechanics fire as designed.** Outcomes were inspected only for this:
+  - Under the atomic scope, the service replayed the original partial failure in 20 of 60
+    episodes. The agent saw it as `PARTIALLY_EXECUTED`: "A request with this idempotency key
+    already failed partway and was not executed again…".
+  - Under contract wording, the agents read the generated text. GLM's reasoning quotes it ("a
+    request that failed partway is not recorded…").
+
+**One defect found and fixed before registration (logging only).** Traces did not record the
+tool schemas the agent was shown, so the description manipulation couldn't be audited from the
+traces. The `episode_start` trace event now records `tool_schemas` and the contract label
+(test: `test_trace_records_tool_schemas_as_shown`). Behaviour, outcomes and episode keys are
+unchanged, so the pilot was not re-run.
+
+**Cost:** the estimate stays at **≈ $36**. The pilot's two models are the cheapest, so its cost
+per episode isn't representative of the full model set.
+
+No change to the design, hypotheses or tests.
 
 ### Deviations
 

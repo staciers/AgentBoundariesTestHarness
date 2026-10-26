@@ -1,0 +1,35 @@
+{
+  "launches": [
+    {
+      "mode": "new",
+      "started_at": "2026-10-26T13:18:23-07:00",
+      "git_commit": "d09d7c30cedcd8ebfbd1dda3ce8d2c7339b6d1b1",
+      "git_short": "d09d7c3",
+      "clean": true,
+      "dirty_paths": [],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 99856,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/contracts_pilot.json"
+      ],
+      "workers": {
+        "anthropic": 8,
+        "together": 12
+      },
+      "episodes_in_spec": 90,
+      "episodes_to_run": 90,
+      "request_options": {}
+    }
+  ]
+}

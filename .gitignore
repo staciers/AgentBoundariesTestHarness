@@ -20,3 +20,4 @@ __pycache__/
 *.egg-info/
 !runs/stage-d-pilot-20261018-104306/
 !runs/stage-d-20261018-111143/
+!runs/contracts-pilot-20261026-131823/

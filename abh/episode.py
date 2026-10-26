@@ -75,8 +75,10 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
                       approval_gated=type(policy).gate is not ControlPolicy.gate, scenario=scenario,
                       policy_check=lambda t, a: scenario.delegation.check(t, a, world), clock=clock)
     agent.start(brief, cfg.seed)
+    # The tool schemas (including any generated key descriptions) are recorded as the agent saw them.
     trace.emit("episode_start", "harness", scenario=scenario.id, policy=policy.label, agent=agent.label,
-               runtime=rcfg.mode.value, faults=[s.to_dict() for s in specs], seed=cfg.seed)
+               runtime=rcfg.mode.value, faults=[s.to_dict() for s in specs], seed=cfg.seed,
+               contract=override_label(cfg.contract), tool_schemas=brief.tool_schemas)
 
     usage = Usage()
     results = None
