@@ -10,7 +10,8 @@ import time
 from typing import Any, Dict, List, Optional
 
 from ..controlplane import ToolCall, ToolResult
-from .base import Agent, AgentTurn, TaskBrief, Usage
+from .base import (DEFAULT_RETRIES, DEFAULT_TIMEOUT_RETRIES, DEFAULT_TIMEOUT_S, Agent, AgentTurn, TaskBrief, Usage,
+                   call_with_retries)
 
 # USD per million tokens (input, output, cached input). Source: OpenAI model
 # pricing page, checked 2026-10-12 (standard tier, short context). Explicit constructor values override these defaults.
@@ -46,8 +47,9 @@ class OpenAIAgent(Agent):
     """
 
     def __init__(self, model: str = "gpt-5.4", effort: Optional[str] = "high",
-                 max_output_tokens: int = 16000, max_retries: int = 4,
-                 timeout_s: float = 600.0, input_price: Optional[float] = None,
+                 max_output_tokens: int = 16000, max_retries: int = DEFAULT_RETRIES,
+                 timeout_s: float = DEFAULT_TIMEOUT_S, timeout_retries: int = DEFAULT_TIMEOUT_RETRIES,
+                 input_price: Optional[float] = None,
                  output_price: Optional[float] = None,
                  cache_read_price: Optional[float] = None):
         self.model = model
@@ -55,6 +57,8 @@ class OpenAIAgent(Agent):
         self.max_output_tokens = max_output_tokens
         self.max_retries = max_retries
         self.timeout_s = timeout_s
+        self.timeout_retries = timeout_retries
+        self.api_stats = {"api_retries": 0, "api_timeouts": 0}
         default_input, default_output, default_cached = PRICES.get(model, (0.0, 0.0, 0.0))
         self.input_price = default_input if input_price is None else input_price
         self.output_price = default_output if output_price is None else output_price
@@ -64,7 +68,8 @@ class OpenAIAgent(Agent):
     def start(self, brief: TaskBrief, seed: int) -> None:
         from openai import OpenAI  # deferred so the core harness has no hard dependency
 
-        self.client = OpenAI(max_retries=self.max_retries, timeout=self.timeout_s)
+        self.client = OpenAI(max_retries=0, timeout=self.timeout_s)  # retries: call_with_retries
+        self.api_stats = {"api_retries": 0, "api_timeouts": 0}
         notes = [brief.system_notes]
         if brief.expose_ask_human:
             notes.append(ASK_NOTE)
@@ -91,7 +96,8 @@ class OpenAIAgent(Agent):
             kwargs["reasoning"] = {"effort": self.effort}
         if self.previous_response_id:
             kwargs["previous_response_id"] = self.previous_response_id
-        return self.client.responses.create(**kwargs)
+        return call_with_retries(lambda: self.client.responses.create(**kwargs), self.api_stats,
+                                 self.max_retries, self.timeout_retries)
 
     def act(self, results: Optional[List[ToolResult]]) -> AgentTurn:
         import openai
@@ -109,6 +115,8 @@ class OpenAIAgent(Agent):
             return self._error("bad_request", e, t0)
         except openai.APIStatusError as e:
             return self._error(f"api_error {e.status_code}", e, t0)
+        except openai.APITimeoutError as e:
+            return self._error("timeout", e, t0)
         except openai.APIConnectionError as e:
             return self._error("connection_error", e, t0)
 

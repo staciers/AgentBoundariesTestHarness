@@ -14,8 +14,14 @@ Spec (JSON)::
       "seeds": 5,                      # int -> range(n), explicit list, or {"start": 100, "count": 30}
       "human": {"latency_median_s": 90},
       "max_turns": 30, "workers": 4, "keep_traces": false,
-      "keep_world": false              # with keep_traces: also save the final World and effects ledger
+      "keep_world": false,             # with keep_traces: also save the final World and effects ledger
+      "request_timeout_s": 180,        # per model request; also "request_retries", "timeout_retries"
     }
+
+``workers`` may instead be a dict of per-provider pools, e.g.
+``{"anthropic": 8, "openai": 8, "together": 12, "default": 4}``: each provider (the agent label's
+prefix) gets its own thread pool, so a slow provider no longer holds back the others. An int
+keeps one shared pool. Episodes start in spec order within each pool.
 
 Every launch is recorded in ``manifest.json`` (git commit, clean tree, versions) and progress
 in ``status.json``; see ``abh.runlog``.
@@ -28,6 +34,7 @@ rejected while the spec is expanded, before any episode runs.
 """
 from __future__ import annotations
 
+import dataclasses
 import fnmatch
 import hashlib
 import json
@@ -125,6 +132,33 @@ def episode_key(c: EpisodeConfig) -> str:
     return hashlib.sha1(blob.encode()).hexdigest()[:16]
 
 
+API_OPTIONS = {"request_timeout_s": "timeout_s", "request_retries": "max_retries",
+               "timeout_retries": "timeout_retries"}
+LLM_AGENT_TYPES = ("anthropic", "openai", "compat")
+
+
+def _with_api_options(agent: Any, spec: Dict[str, Any]) -> Any:
+    """Apply spec-level request options to an LLM agent config that doesn't set its own.
+
+    They are not part of the agent label, so episode keys are unchanged."""
+    if not isinstance(agent, dict) or agent.get("type") not in LLM_AGENT_TYPES:
+        return agent
+    extra = {arg: spec[k] for k, arg in API_OPTIONS.items() if k in spec and arg not in agent}
+    return {**agent, **extra} if extra else agent
+
+
+def provider_of(cfg: EpisodeConfig) -> str:
+    return make_agent(cfg.agent).label.split(":")[0]
+
+
+def _pool_sizes(workers: Any, providers: List[str]) -> Dict[str, int]:
+    """Worker count per provider; one shared pool ("*") when ``workers`` is an int."""
+    if not isinstance(workers, dict):
+        return {"*": max(1, int(workers))}
+    default = int(workers.get("default", 1))
+    return {p: max(1, int(workers.get(p, default))) for p in sorted(set(providers))}
+
+
 def run_experiment(spec: Dict[str, Any], out_root: str = "runs", resume: Optional[str] = None,
                    dry_run: bool = False, rerun_errors: bool = False) -> str:
     """Run (or resume) a spec. ``rerun_errors`` (with ``resume``) first moves errored episodes to
@@ -151,9 +185,11 @@ def run_experiment(spec: Dict[str, Any], out_root: str = "runs", resume: Optiona
     todo = [(k, c) for k, c in all_keys if k not in done]
     print(f"[abh] {len(todo)} episodes to run ({len(done)} already done) -> {out_dir}", file=sys.stderr)
 
-    workers = int(spec.get("workers", 1))
+    workers = spec.get("workers", 1)
+    pools = _pool_sizes(workers, [provider_of(c) for _, c in todo])
     mode = "rerun_errors" if rerun_errors else "resume" if resume else "new"
-    launch = runlog.record_launch(out_dir, mode, workers, len(all_keys), len(todo),
+    launch = runlog.record_launch(out_dir, mode, pools, len(all_keys), len(todo),
+                                  request_options={k: spec[k] for k in API_OPTIONS if k in spec},
                                   **({"rerun_keys": set_aside} if rerun_errors else {}))
     if launch["clean"] is False:
         print(f"[abh] WARNING: code tree not clean ({', '.join(launch['dirty_paths'])}); recorded in manifest.json",
@@ -172,7 +208,8 @@ def run_experiment(spec: Dict[str, Any], out_root: str = "runs", resume: Optiona
     def one(item):
         key, cfg = item
         try:
-            res = run_episode(cfg, keep_trace=keep, keep_world=keep_world)
+            run_cfg = dataclasses.replace(cfg, agent=_with_api_options(cfg.agent, spec))
+            res = run_episode(run_cfg, keep_trace=keep, keep_world=keep_world)
         except Exception as e:  # never lose a long run to one bad episode
             res = {"error": f"{type(e).__name__}: {e}", "scenario": cfg.scenario}
         res["key"] = key
@@ -189,16 +226,21 @@ def run_experiment(spec: Dict[str, Any], out_root: str = "runs", resume: Optiona
 
     n_done = 0
     try:
-        if workers <= 1:
+        if pools == {"*": 1}:
             for item in todo:
                 one(item)
                 n_done += 1
                 _progress(n_done, len(todo), t0)
         else:
-            with ThreadPoolExecutor(workers) as ex:
-                for _ in as_completed([ex.submit(one, it) for it in todo]):
+            execs = {p: ThreadPoolExecutor(n, thread_name_prefix=f"abh-{p}") for p, n in pools.items()}
+            try:
+                futures = [execs["*" if "*" in execs else provider_of(it[1])].submit(one, it) for it in todo]
+                for _ in as_completed(futures):
                     n_done += 1
                     _progress(n_done, len(todo), t0)
+            finally:
+                for ex in execs.values():
+                    ex.shutdown(wait=True, cancel_futures=True)
     except KeyboardInterrupt:
         status.write("interrupted")
         raise

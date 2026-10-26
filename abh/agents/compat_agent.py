@@ -24,7 +24,8 @@ import time
 from typing import Any, Dict, List, Optional
 
 from ..controlplane import ToolCall, ToolResult
-from .base import Agent, AgentTurn, TaskBrief, Usage
+from .base import (DEFAULT_RETRIES, DEFAULT_TIMEOUT_RETRIES, DEFAULT_TIMEOUT_S, Agent, AgentTurn, TaskBrief, Usage,
+                   call_with_retries)
 from .openai_agent import ASK_NOTE, CONF_NOTE, GATED_NOTE, SYSTEM
 
 # base_url and the environment variable holding the key. Verify base URLs against the
@@ -44,7 +45,8 @@ class CompatAgent(Agent):
                  key_env: Optional[str] = None, input_price: float = 0.0, output_price: float = 0.0,
                  cache_read_price: Optional[float] = None, max_tokens: int = 16000,
                  temperature: Optional[float] = None, extra_body: Optional[dict] = None,
-                 replay_reasoning: bool = False, max_retries: int = 4, timeout_s: float = 600.0,
+                 replay_reasoning: bool = False, max_retries: int = DEFAULT_RETRIES,
+                 timeout_s: float = DEFAULT_TIMEOUT_S, timeout_retries: int = DEFAULT_TIMEOUT_RETRIES,
                  alias: Optional[str] = None):
         preset = PROVIDERS.get(provider, {})
         self.provider = provider
@@ -60,7 +62,8 @@ class CompatAgent(Agent):
         self.temperature = temperature
         self.extra_body = dict(extra_body or {})
         self.replay_reasoning = replay_reasoning
-        self.max_retries, self.timeout_s = max_retries, timeout_s
+        self.max_retries, self.timeout_s, self.timeout_retries = max_retries, timeout_s, timeout_retries
+        self.api_stats = {"api_retries": 0, "api_timeouts": 0}
         name = alias or model.split("/")[-1]
         self.label = f"{provider}:{name}" + (f"@{effort}" if effort else "")
         self.served_models: set = set()
@@ -68,7 +71,8 @@ class CompatAgent(Agent):
     def start(self, brief: TaskBrief, seed: int) -> None:
         from openai import OpenAI
         self.client = OpenAI(base_url=self.base_url, api_key=os.environ.get(self.key_env, ""),
-                             max_retries=self.max_retries, timeout=self.timeout_s)
+                             max_retries=0, timeout=self.timeout_s)  # retries: call_with_retries
+        self.api_stats = {"api_retries": 0, "api_timeouts": 0}
         notes = [brief.system_notes]
         if brief.expose_ask_human:
             notes.append(ASK_NOTE)
@@ -94,7 +98,8 @@ class CompatAgent(Agent):
             body.setdefault("reasoning_effort", self.effort)
         if body:
             kwargs["extra_body"] = body
-        return self.client.chat.completions.create(**kwargs)
+        return call_with_retries(lambda: self.client.chat.completions.create(**kwargs), self.api_stats,
+                                 self.max_retries, self.timeout_retries)
 
     def act(self, results: Optional[List[ToolResult]]) -> AgentTurn:
         import openai
@@ -107,6 +112,8 @@ class CompatAgent(Agent):
             return self._error("bad_request", e, t0)
         except openai.APIStatusError as e:
             return self._error(f"api_error {e.status_code}", e, t0)
+        except openai.APITimeoutError as e:
+            return self._error("timeout", e, t0)
         except openai.APIConnectionError as e:
             return self._error("connection_error", e, t0)
         usage = self._usage(resp, int((time.time() - t0) * 1000))

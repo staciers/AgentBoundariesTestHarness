@@ -16,7 +16,8 @@ import time
 from typing import Any, Dict, List, Optional
 
 from ..controlplane import ToolCall, ToolResult
-from .base import Agent, AgentTurn, TaskBrief, Usage
+from .base import (DEFAULT_RETRIES, DEFAULT_TIMEOUT_RETRIES, DEFAULT_TIMEOUT_S, Agent, AgentTurn, TaskBrief, Usage,
+                   call_with_retries)
 
 # USD per million tokens (input, output, cache read). Source: Anthropic pricing as of 2026-10.
 PRICES = {
@@ -44,7 +45,8 @@ CONF_NOTE = ("Every tool call requires a `confidence` value between 0 and 1: you
 class AnthropicAgent(Agent):
     def __init__(self, model: str = "claude-opus-5-5", effort: Optional[str] = "high", max_tokens: int = 16000,
                  thinking: Optional[dict] = None, fallbacks: Optional[Any] = None, prompt_cache: bool = True,
-                 max_retries: int = 4, timeout_s: float = 600.0):
+                 max_retries: int = DEFAULT_RETRIES, timeout_s: float = DEFAULT_TIMEOUT_S,
+                 timeout_retries: int = DEFAULT_TIMEOUT_RETRIES):
         self.model = model
         self.effort = effort
         self.max_tokens = max_tokens
@@ -53,11 +55,14 @@ class AnthropicAgent(Agent):
         self.prompt_cache = prompt_cache
         self.max_retries = max_retries
         self.timeout_s = timeout_s
+        self.timeout_retries = timeout_retries
+        self.api_stats = {"api_retries": 0, "api_timeouts": 0}
         self.label = f"anthropic:{model}" + (f"@{effort}" if effort else "")
 
     def start(self, brief: TaskBrief, seed: int) -> None:
         import anthropic  # deferred so the core harness has no hard dependency
-        self.client = anthropic.Anthropic(max_retries=self.max_retries, timeout=self.timeout_s)
+        self.client = anthropic.Anthropic(max_retries=0, timeout=self.timeout_s)  # retries: call_with_retries
+        self.api_stats = {"api_retries": 0, "api_timeouts": 0}
         notes = [brief.system_notes]
         if brief.expose_ask_human:
             notes.append(ASK_NOTE)
@@ -84,8 +89,10 @@ class AnthropicAgent(Agent):
             kwargs["fallbacks"] = self.fallbacks
             kwargs["betas"] = ["server-side-fallback-2026-07-01" if self.fallbacks == "default"
                                else "server-side-fallback-2026-06-01"]
-            return self.client.beta.messages.create(**kwargs)
-        return self.client.messages.create(**kwargs)
+            fn = lambda: self.client.beta.messages.create(**kwargs)
+        else:
+            fn = lambda: self.client.messages.create(**kwargs)
+        return call_with_retries(fn, self.api_stats, self.max_retries, self.timeout_retries)
 
     def act(self, results: Optional[List[ToolResult]]) -> AgentTurn:
         import anthropic
@@ -100,6 +107,9 @@ class AnthropicAgent(Agent):
             return AgentTurn(final=None, error=f"bad_request: {e}", usage=Usage(latency_ms=int((time.time() - t0) * 1000)))
         except anthropic.APIStatusError as e:
             return AgentTurn(final=None, error=f"api_error {e.status_code}: {e}",
+                             usage=Usage(latency_ms=int((time.time() - t0) * 1000)))
+        except anthropic.APITimeoutError as e:
+            return AgentTurn(final=None, error=f"timeout: {e}",
                              usage=Usage(latency_ms=int((time.time() - t0) * 1000)))
         except anthropic.APIConnectionError as e:
             return AgentTurn(final=None, error=f"connection_error: {e}",

@@ -966,3 +966,72 @@ class TestRunLog(unittest.TestCase):
             self.assertIn("truth", saved["world"])
             self.assertTrue(saved["world"]["effects"])
             self.assertNotIn("world", load_episodes(os.path.join(out, "episodes.jsonl"))[0])
+
+
+class TestRequestPolicyAndPools(unittest.TestCase):
+    def _err(self, name, status=None):
+        cls = type(name, (Exception,), {})
+        e = cls(name)
+        e.status_code = status
+        return e
+
+    def call(self, errors, **kw):
+        from abh.agents.base import call_with_retries
+        errors, stats, waits = list(errors), {}, []
+
+        def fn():
+            if errors:
+                raise errors.pop(0)
+            return "ok"
+        try:
+            out = call_with_retries(fn, stats, sleep=waits.append, **kw)
+        except Exception as e:
+            out = type(e).__name__
+        return out, stats, waits
+
+    def test_transient_errors_are_retried_and_counted(self):
+        out, stats, waits = self.call([self._err("RateLimitError", 429), self._err("InternalServerError", 503),
+                                       self._err("ConflictError", 409)])
+        self.assertEqual(out, "ok")
+        self.assertEqual(stats, {"api_retries": 3})
+        self.assertEqual(len(waits), 3)
+
+    def test_timeouts_retry_once_then_fail(self):
+        out, stats, _ = self.call([self._err("APITimeoutError")])
+        self.assertEqual((out, stats), ("ok", {"api_timeouts": 1, "api_retries": 1}))
+        out, stats, _ = self.call([self._err("APITimeoutError")] * 2)
+        self.assertEqual((out, stats["api_timeouts"]), ("APITimeoutError", 2))
+
+    def test_client_errors_and_exhaustion_raise(self):
+        out, stats, _ = self.call([self._err("BadRequestError", 400)])
+        self.assertEqual((out, stats), ("BadRequestError", {}))
+        out, stats, _ = self.call([self._err("RateLimitError", 429)] * 3, retries=2)
+        self.assertEqual((out, stats["api_retries"]), ("RateLimitError", 2))
+
+    def test_request_options_do_not_change_episode_keys(self):
+        from abh.experiment import _with_api_options, episode_key
+        spec = {"request_timeout_s": 120, "timeout_retries": 0}
+        llm = {"type": "anthropic", "model": "claude-haiku-5-5", "effort": "high"}
+        own = dict(llm, timeout_s=300)
+        self.assertEqual(_with_api_options(llm, spec), dict(llm, timeout_s=120, timeout_retries=0))
+        self.assertEqual(_with_api_options(own, spec)["timeout_s"], 300)
+        self.assertEqual(_with_api_options({"type": "scripted"}, spec), {"type": "scripted"})
+        cfg = EpisodeConfig("travel/base", "P1", llm, [], "none", None, None, 0)
+        import dataclasses
+        self.assertEqual(episode_key(cfg), episode_key(dataclasses.replace(cfg, agent=_with_api_options(llm, spec))))
+
+    def test_pool_sizes(self):
+        from abh.experiment import _pool_sizes
+        self.assertEqual(_pool_sizes(6, ["anthropic", "together"]), {"*": 6})
+        self.assertEqual(_pool_sizes({"anthropic": 8, "together": 12, "default": 2}, ["anthropic", "openai", "together"]),
+                         {"anthropic": 8, "openai": 2, "together": 12})
+
+    def test_per_provider_pools_run(self):
+        spec = {"name": "t", "scenarios": ["travel/base"], "policies": ["P1", "P6"],
+                "agents": [{"type": "scripted", "profile": "naive"}, {"type": "scripted", "profile": "careful"}],
+                "fault_conditions": ["none"], "seeds": 3, "workers": {"scripted": 3, "default": 1}}
+        with tempfile.TemporaryDirectory() as d:
+            out = run_experiment(spec, d)
+            self.assertEqual(len(load_episodes(os.path.join(out, "episodes.jsonl"))), 12)
+            m = json.load(open(os.path.join(out, "manifest.json")))
+            self.assertEqual(m["launches"][0]["workers"], {"scripted": 3})

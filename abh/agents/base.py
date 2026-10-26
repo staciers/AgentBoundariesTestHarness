@@ -26,6 +26,47 @@ class Usage:
         self.synthetic = self.synthetic or o.synthetic
 
 
+# API request policy for the model adapters. The SDKs' own retries are switched off so that
+# every retry and timeout is counted and reported with the episode (``api_retries``,
+# ``api_timeouts``). A timed-out request is re-sent at most ``timeout_retries`` times; after
+# that the turn ends with a ``timeout`` agent error, which the pre-registered exclusion rule
+# re-runs as a whole episode (``abh run --resume <dir> --rerun-errors``).
+DEFAULT_TIMEOUT_S = 180.0
+DEFAULT_RETRIES = 4          # 408/409/429/5xx and connection errors
+DEFAULT_TIMEOUT_RETRIES = 1
+RETRY_STATUS = {408, 409, 429}
+
+
+def call_with_retries(fn: Callable[[], Any], stats: dict, retries: int = DEFAULT_RETRIES,
+                      timeout_retries: int = DEFAULT_TIMEOUT_RETRIES, sleep: Callable[[float], None] = None) -> Any:
+    """Call ``fn``; retry transient failures with capped exponential backoff, counting into ``stats``."""
+    import random
+    import time as _time
+    sleep = sleep or _time.sleep
+    n = timeouts = 0
+    while True:
+        try:
+            return fn()
+        except Exception as e:  # SDK exceptions, classified by name so both SDKs share this
+            name = type(e).__name__
+            status = getattr(e, "status_code", None)
+            if "Timeout" in name:
+                stats["api_timeouts"] = stats.get("api_timeouts", 0) + 1
+                if timeouts >= timeout_retries:
+                    raise
+                timeouts += 1
+            elif not (name == "APIConnectionError" or status in RETRY_STATUS or (status or 0) >= 500) or n >= retries:
+                raise
+            n += 1
+            stats["api_retries"] = stats.get("api_retries", 0) + 1
+            wait = min(8.0, 0.5 * 2 ** (n - 1)) * (1 + 0.25 * random.random())
+            try:
+                wait = max(wait, min(60.0, float(e.response.headers.get("retry-after"))))
+            except (AttributeError, TypeError, ValueError):
+                pass
+            sleep(wait)
+
+
 @dataclass
 class AgentTurn:
     calls: List[ToolCall] = field(default_factory=list)

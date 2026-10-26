@@ -95,6 +95,23 @@ these files; their code version is recorded in the pre-registrations and run not
 With `keep_traces` and `keep_world: true`, each trace also stores the evaluator's ground truth:
 the final committed state of every table (hidden ones included) and the full effects ledger.
 
+### Worker pools and request timeouts
+
+- **Workers.** `"workers": 6` keeps one shared pool. A dict gives each provider its own pool,
+  e.g. `{"anthropic": 8, "openai": 8, "together": 12, "default": 4}`, so a slow provider doesn't
+  hold back the others. The provider is the agent label's prefix. Size each pool to that
+  account's rate limits; the counts used are recorded in `manifest.json`.
+- **Requests.** Each model request times out after 180 s (`request_timeout_s`; per agent,
+  `timeout_s`). A timed-out request is re-sent once (`timeout_retries`); if it times out again,
+  the turn ends with a `timeout` agent error, which `--rerun-errors` re-runs as a whole
+  episode. Rate limits (429), 408/409, 5xx and connection errors are retried up to 4 times
+  (`request_retries`), with capped exponential backoff that honours `Retry-After`.
+- **Counting.** The SDKs' own retries are switched off, so every retry and timeout is counted
+  in the episode result (`api_retries`, `api_timeouts`). Before 2026-10-26 the SDKs retried
+  silently, with a 600 s timeout.
+- Request options aren't part of the agent label, so changing them leaves episode keys
+  unchanged.
+
 ## Re-scoring old runs
 
 `python -m abh rescore runs/<dir>` replays every saved trace (`keep_traces: true`) against

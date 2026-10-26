@@ -61,7 +61,7 @@ def _versions() -> Dict[str, Optional[str]]:
     return out
 
 
-def record_launch(out_dir: str, mode: str, workers: int, total: int, todo: int, **extra: Any) -> Dict[str, Any]:
+def record_launch(out_dir: str, mode: str, workers: Any, total: int, todo: int, **extra: Any) -> Dict[str, Any]:
     """Append this launch to manifest.json and return the entry."""
     path = os.path.join(out_dir, "manifest.json")
     manifest = {"launches": []}

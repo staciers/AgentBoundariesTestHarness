@@ -169,6 +169,7 @@ def _evaluate(cfg, scenario, policy, agent, rcfg, world, cp: ControlPlane, injec
         "escalations": [e.to_dict() for e in cp.escalations],
         "termination": termination, "agent_error": agent_error, "final_message": final,
         "principal_replies_used": sum(1 for e in cp.escalations if e.request.trigger == "principal_reply"),
+        **(dict(agent.api_stats) if getattr(agent, "api_stats", None) is not None else {}),
         "trace": trace.to_list() if trace is not None else None,
         "transcript": agent.transcript(),
     }
