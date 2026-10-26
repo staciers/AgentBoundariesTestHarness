@@ -37,4 +37,4 @@ episodes; every closed model in 0%. The traces show why:
 - **This likely explains OC3's non-replication:** models that seldom use keys properly have
   little to over-trust.
 - **The P6 runtime attaches keys itself,** and had 0% harm for every model tested so far
-  (12 models across all studies).
+  (10 models across all studies).

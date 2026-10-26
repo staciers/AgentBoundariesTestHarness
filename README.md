@@ -57,7 +57,10 @@ python3 -m unittest discover -s tests -v
 `run` writes `runs/<name>-<timestamp>/` containing `episodes.jsonl`, `report.md`, and the CSVs
 `by_policy`, `by_policy_runtime`, `by_fault`, `by_variant`, `failure_ownership` and
 `risk_coverage`. If matplotlib is installed, it also writes `risk_coverage.png`. Runs can be
-resumed with `--resume runs/<dir>`, and `python3 -m abh report runs/<dir>` rebuilds the report.
+resumed with `--resume runs/<dir>` (add `--rerun-errors` to re-run errored episodes, keeping the
+originals), and `python3 -m abh report runs/<dir>` rebuilds the report. Every launch is recorded
+in `manifest.json` (git commit, clean tree, versions), and `python3 -m abh status runs/<dir>`
+shows progress, errors and cost from the run's own `status.json`.
 `python3 -m abh rescore runs/<dir>` replays saved traces under the current evaluator, with no
 model calls. Use it after changing metrics.
 

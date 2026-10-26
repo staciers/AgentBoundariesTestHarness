@@ -912,3 +912,57 @@ class TestDeterminismAndRunner(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRunLog(unittest.TestCase):
+    SPEC = {"name": "t", "scenarios": ["travel/base"], "policies": ["P1"],
+            "agents": [{"type": "scripted", "profile": "naive"}], "fault_conditions": ["none"], "seeds": 3,
+            "keep_traces": True}
+
+    def test_manifest_and_status(self):
+        from abh.runlog import read_status
+        with tempfile.TemporaryDirectory() as d:
+            out = run_experiment(self.SPEC, d)
+            m = json.load(open(os.path.join(out, "manifest.json")))
+            self.assertEqual(len(m["launches"]), 1)
+            first = m["launches"][0]
+            self.assertEqual(first["mode"], "new")
+            self.assertIn("git_commit", first)
+            self.assertIn("python", first["versions"])
+            s = json.load(open(os.path.join(out, "status.json")))
+            self.assertEqual((s["state"], s["done"], s["total"], s["errors"]), ("finished", 3, 3, 0))
+            self.assertEqual(s["by_provider"]["scripted"]["episodes"], 3)
+            self.assertIn("finished, 3/3 episodes", read_status(out))
+            run_experiment(self.SPEC, d, resume=out)
+            m = json.load(open(os.path.join(out, "manifest.json")))
+            self.assertEqual([l["mode"] for l in m["launches"]], ["new", "resume"])
+            self.assertEqual(m["launches"][1]["episodes_to_run"], 0)
+
+    def test_rerun_errors_keeps_originals_and_traces(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = run_experiment(self.SPEC, d)
+            ep = os.path.join(out, "episodes.jsonl")
+            rows = load_episodes(ep)
+            rows[0]["agent_error"] = "max_tokens"
+            rows[1]["agent_error"] = "refusal: content_filter"  # refusals are outcomes, not re-run
+            with open(ep, "w") as f:
+                f.writelines(json.dumps(r) + "\n" for r in rows)
+            bad = rows[0]["key"]
+            run_experiment(self.SPEC, d, resume=out, rerun_errors=True)
+            self.assertEqual(len(load_episodes(ep)), 3)
+            self.assertEqual([r["key"] for r in load_episodes(os.path.join(out, "episodes_rerun_originals.jsonl"))],
+                             [bad])
+            sup = os.listdir(os.path.join(out, "traces", "superseded"))
+            self.assertEqual(len(sup), 1)
+            self.assertTrue(sup[0].startswith(bad))
+            m = json.load(open(os.path.join(out, "manifest.json")))
+            self.assertEqual(m["launches"][-1]["rerun_keys"], [bad])
+
+    def test_keep_world_saves_ground_truth(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = run_experiment(dict(self.SPEC, seeds=1, keep_world=True), d)
+            key = load_episodes(os.path.join(out, "episodes.jsonl"))[0]["key"]
+            saved = json.load(open(os.path.join(out, "traces", f"{key}.json")))
+            self.assertIn("truth", saved["world"])
+            self.assertTrue(saved["world"]["effects"])
+            self.assertNotIn("world", load_episodes(os.path.join(out, "episodes.jsonl"))[0])

@@ -13,8 +13,12 @@ Spec (JSON)::
       "runtime_overrides": [null],                       # e.g. [null, "semantic"] crosses runtime x policy
       "seeds": 5,                      # int -> range(n), explicit list, or {"start": 100, "count": 30}
       "human": {"latency_median_s": 90},
-      "max_turns": 30, "workers": 4, "keep_traces": false
+      "max_turns": 30, "workers": 4, "keep_traces": false,
+      "keep_world": false              # with keep_traces: also save the final World and effects ledger
     }
+
+Every launch is recorded in ``manifest.json`` (git commit, clean tree, versions) and progress
+in ``status.json``; see ``abh.runlog``.
 
 ``fault_conditions`` may also be a list whose items are ``"none"``, a fault type
 name, a fault spec dict, or a list of specs. A list is a *compound* condition: all its
@@ -40,6 +44,7 @@ from .episode import EpisodeConfig, fault_label, run_episode
 from .faults import FaultSpec, FaultType, validate_compound
 from .metrics import load_episodes, write_report
 from .policies import make_policy
+from . import runlog
 
 
 def _scenarios(sel) -> List[str]:
@@ -121,23 +126,43 @@ def episode_key(c: EpisodeConfig) -> str:
 
 
 def run_experiment(spec: Dict[str, Any], out_root: str = "runs", resume: Optional[str] = None,
-                   dry_run: bool = False) -> str:
+                   dry_run: bool = False, rerun_errors: bool = False) -> str:
+    """Run (or resume) a spec. ``rerun_errors`` (with ``resume``) first moves errored episodes to
+    ``episodes_rerun_originals.jsonl`` so they run again, per the pre-registered exclusion rule."""
+    if rerun_errors and not resume:
+        raise ValueError("rerun_errors needs resume=<run dir>")
     out_dir = resume or os.path.join(out_root, f"{spec.get('name', 'exp')}-{time.strftime('%Y%m%d-%H%M%S')}")
+    ep_path = os.path.join(out_dir, "episodes.jsonl")
+    if dry_run:  # count only; write nothing
+        done = {e.get("key") for e in load_episodes(ep_path)} if os.path.exists(ep_path) else set()
+        n = sum(1 for c in expand(spec) if episode_key(c) not in done)
+        print(f"[abh] {n} episodes to run ({len(done)} already done) -> {out_dir}", file=sys.stderr)
+        return out_dir
     os.makedirs(out_dir, exist_ok=True)
+    set_aside: List[str] = []
+    if rerun_errors and os.path.exists(ep_path):
+        set_aside = runlog.set_aside_errors(out_dir)
     with open(os.path.join(out_dir, "spec.json"), "w") as f:
         json.dump(spec, f, indent=2)
-    ep_path = os.path.join(out_dir, "episodes.jsonl")
-    done = set()
-    if os.path.exists(ep_path):
-        done = {e.get("key") for e in load_episodes(ep_path)}
+    existing = load_episodes(ep_path) if os.path.exists(ep_path) else []
+    done = {e.get("key") for e in existing}
 
-    todo: List[Tuple[str, EpisodeConfig]] = [(episode_key(c), c) for c in expand(spec)]
-    todo = [(k, c) for k, c in todo if k not in done]
+    all_keys: List[Tuple[str, EpisodeConfig]] = [(episode_key(c), c) for c in expand(spec)]
+    todo = [(k, c) for k, c in all_keys if k not in done]
     print(f"[abh] {len(todo)} episodes to run ({len(done)} already done) -> {out_dir}", file=sys.stderr)
-    if dry_run:
-        return out_dir
+
+    workers = int(spec.get("workers", 1))
+    mode = "rerun_errors" if rerun_errors else "resume" if resume else "new"
+    launch = runlog.record_launch(out_dir, mode, workers, len(all_keys), len(todo),
+                                  **({"rerun_keys": set_aside} if rerun_errors else {}))
+    if launch["clean"] is False:
+        print(f"[abh] WARNING: code tree not clean ({', '.join(launch['dirty_paths'])}); recorded in manifest.json",
+              file=sys.stderr)
+    status = runlog.Status(out_dir, len(all_keys), existing, launch)
+    status.write("running")
 
     keep = bool(spec.get("keep_traces", False))
+    keep_world = keep and bool(spec.get("keep_world", False))
     trace_dir = os.path.join(out_dir, "traces")
     if keep:
         os.makedirs(trace_dir, exist_ok=True)
@@ -147,31 +172,40 @@ def run_experiment(spec: Dict[str, Any], out_root: str = "runs", resume: Optiona
     def one(item):
         key, cfg = item
         try:
-            res = run_episode(cfg, keep_trace=keep)
+            res = run_episode(cfg, keep_trace=keep, keep_world=keep_world)
         except Exception as e:  # never lose a long run to one bad episode
             res = {"error": f"{type(e).__name__}: {e}", "scenario": cfg.scenario}
         res["key"] = key
-        trace, transcript = res.pop("trace", None), res.pop("transcript", None)
+        payload = {"trace": res.pop("trace", None), "transcript": res.pop("transcript", None)}
+        if "world" in res:
+            payload["world"] = res.pop("world")
         with lock:
             if keep and "error" not in res:
-                with open(os.path.join(trace_dir, f"{key}.json"), "w") as f:
-                    json.dump({"trace": trace, "transcript": transcript}, f, default=str)
+                runlog.save_trace(trace_dir, key, payload)
             with open(ep_path, "a") as f:
                 f.write(json.dumps(res, default=str) + "\n")
+            status.add(res)
         return res
 
-    workers = int(spec.get("workers", 1))
     n_done = 0
-    if workers <= 1:
-        for item in todo:
-            one(item)
-            n_done += 1
-            _progress(n_done, len(todo), t0)
-    else:
-        with ThreadPoolExecutor(workers) as ex:
-            for _ in as_completed([ex.submit(one, it) for it in todo]):
+    try:
+        if workers <= 1:
+            for item in todo:
+                one(item)
                 n_done += 1
                 _progress(n_done, len(todo), t0)
+        else:
+            with ThreadPoolExecutor(workers) as ex:
+                for _ in as_completed([ex.submit(one, it) for it in todo]):
+                    n_done += 1
+                    _progress(n_done, len(todo), t0)
+    except KeyboardInterrupt:
+        status.write("interrupted")
+        raise
+    except BaseException:
+        status.write("failed")
+        raise
+    status.write("finished")
     print(file=sys.stderr)
     eps = [e for e in load_episodes(ep_path) if "error" not in e]
     errs = sum(1 for e in load_episodes(ep_path) if "error" in e)

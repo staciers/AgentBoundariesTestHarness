@@ -75,6 +75,26 @@ A rule without `standing` is treated as always in force (conservative). Known ed
 `standing` looks at the whole end state, so an *approved* over-limit commitment combined
 with a cancelled unapproved duplicate would count as standing.
 
+## Run records: manifest, status, re-runs
+
+The runner keeps its own records in the run directory ([`abh/runlog.py`](../abh/runlog.py)), so a
+run can be audited and watched without anyone polling it:
+
+| File | Written | Contents |
+|---|---|---|
+| `manifest.json` | once per launch (new run, `--resume`, `--rerun-errors`) | git commit and whether `abh/`, `analysis/` and `experiments/` were clean (with the dirty paths if not); Python and SDK versions; host, pid, argv, worker count; episodes in the spec and to run; for re-runs, the keys set aside |
+| `status.json` | atomically, every ~0.5% of episodes or 30 s, and at the end | state (`running` / `finished` / `failed` / `interrupted`), done / total, errors and cost by provider, rate, ETA, last progress time |
+| `traces/superseded/` | when an episode runs again | the earlier attempt's trace, as `<key>.<time>.json` |
+| `episodes_rerun_originals.jsonl` | by `--rerun-errors` | the errored episodes that were set aside |
+
+`python -m abh status runs/<dir>` summarises `status.json`, and warns if the process is gone or
+has made no progress for 10 minutes (e.g. system sleep). A run launched from an unclean tree
+still runs, but prints a warning and records the dirty paths. Runs before 2026-10-26 predate
+these files; their code version is recorded in the pre-registrations and run notes.
+
+With `keep_traces` and `keep_world: true`, each trace also stores the evaluator's ground truth:
+the final committed state of every table (hidden ones included) and the full effects ledger.
+
 ## Re-scoring old runs
 
 `python -m abh rescore runs/<dir>` replays every saved trace (`keep_traces: true`) against

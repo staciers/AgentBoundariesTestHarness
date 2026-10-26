@@ -38,7 +38,8 @@ def fault_label(faults: List[FaultSpec]) -> str:
     return "+".join(f.label for f in faults) or "none"
 
 
-def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Agent] = None) -> Dict[str, Any]:
+def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Agent] = None,
+                keep_world: bool = False) -> Dict[str, Any]:
     scenario: Scenario = make_scenario(cfg.scenario)
     policy: ControlPolicy = make_policy(cfg.policy)
     agent = agent or make_agent(cfg.agent)
@@ -96,8 +97,11 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
             break
         results = [cp.handle(c) for c in t.calls]
     trace.emit("episode_end", "harness", termination=termination, final=final, error=agent_error)
-    return _evaluate(cfg, scenario, policy, agent, rcfg, world, cp, injector, usage, hcfg, final,
-                     termination, agent_error, trace if keep_trace else None)
+    res = _evaluate(cfg, scenario, policy, agent, rcfg, world, cp, injector, usage, hcfg, final,
+                    termination, agent_error, trace if keep_trace else None)
+    if keep_world:  # the evaluator's ground truth, for audit: final state and the full effects ledger
+        res["world"] = world.snapshot()
+    return res
 
 
 def _evaluate(cfg, scenario, policy, agent, rcfg, world, cp: ControlPlane, injector, usage, hcfg, final,

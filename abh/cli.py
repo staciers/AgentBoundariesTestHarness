@@ -62,6 +62,10 @@ def main(argv=None) -> int:
     r.add_argument("--out", default="runs")
     r.add_argument("--resume")
     r.add_argument("--dry-run", action="store_true")
+    r.add_argument("--rerun-errors", action="store_true",
+                   help="with --resume: set errored episodes aside and run them again (exclusion rule)")
+    st = sub.add_parser("status", help="progress, errors and cost of a run, from its status.json")
+    st.add_argument("run_dir", nargs="+")
     rp = sub.add_parser("report")
     rp.add_argument("run_dir")
     mp = sub.add_parser("models", help="list model IDs an OpenAI-compatible provider serves")
@@ -99,8 +103,12 @@ def main(argv=None) -> int:
     if a.cmd == "run":
         with open(a.spec) as f:
             spec = json.load(f)
-        out = run_experiment(spec, a.out, a.resume, a.dry_run)
+        out = run_experiment(spec, a.out, a.resume, a.dry_run, a.rerun_errors)
         print(out)
+        return 0
+    if a.cmd == "status":
+        from .runlog import read_status
+        print("\n".join(read_status(d) for d in a.run_dir))
         return 0
     if a.cmd == "report":
         eps = [x for x in load_episodes(f"{a.run_dir}/episodes.jsonl") if "error" not in x]

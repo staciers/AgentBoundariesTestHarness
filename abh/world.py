@@ -136,6 +136,12 @@ class World:
                     snap.setdefault(t, {})[k] = v
         return snap
 
+    def snapshot(self) -> Dict[str, Any]:
+        """Final committed state (including hidden tables) and the full effects ledger."""
+        from dataclasses import asdict
+        return {"sim_time_ms": self.clock.now_ms, "truth": copy.deepcopy(self.truth()),
+                "effects": [asdict(e) for e in self.effects]}
+
     def active_effects(self, kind: Optional[str] = None) -> List[Effect]:
         return [e for e in self.effects
                 if not e.compensated and (kind is None or e.kind == kind)]
