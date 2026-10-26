@@ -157,3 +157,19 @@ seed 900) for **$0.38**: $0.16 Anthropic, $0.23 Together.
 ### Deviations
 
 *(None yet.)*
+
+### Outcome (recorded after analysis, 2026-10-18)
+
+Run `runs/stage-d-20261018-111143`: 10,800 episodes, $86.25. 5 `max_tokens` episodes were
+re-run from `32cb181` and all succeeded; nothing was excluded. Every response came from the
+requested model.
+
+- **Decision rule met:** D1, D2 and D3 confirmed. P6's delegation effect holds with the runtime
+  held fixed, at both runtime levels.
+- **D4 and D5 confirmed:** B5 and B4, deconfounded.
+- **D6 not confirmed:** with no runtime, P6 routes unresolved outcomes to a human, and harm stays
+  low (4% vs 3%). The cost moves to human attention (0.84 vs 0.45 interventions per task).
+- **K1 and K3 confirmed;** K2 equivalent. The effect comes from the authority gate and from
+  routing; the confidence gate is inert.
+
+Details, and the exploratory P5 comparison, are in the run's `NOTES.md`.

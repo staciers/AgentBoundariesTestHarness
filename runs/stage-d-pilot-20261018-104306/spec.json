@@ -1,0 +1,110 @@
+{
+  "name": "stage-d-pilot",
+  "_comment": "Pilot for Stage D: one seed, two models, the new arms only (P6 components, P6 without runtime, P1 with the semantic runtime). Checks the new policy switches against LLMs and measures cost. Not analysed.",
+  "scenarios": [
+    "travel/base",
+    "travel/ambiguous",
+    "travel/authority",
+    "commerce/base",
+    "commerce/ambiguous",
+    "commerce/authority",
+    "devops/base",
+    "devops/ambiguous",
+    "devops/authority",
+    "scheduling/base",
+    "scheduling/ambiguous",
+    "scheduling/authority",
+    "platform/base",
+    "platform/ambiguous",
+    "platform/authority"
+  ],
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    }
+  ],
+  "fault_conditions": [
+    "none",
+    [
+      "timeout_after_execution",
+      "delayed_visibility"
+    ]
+  ],
+  "seeds": [
+    900
+  ],
+  "human": {
+    "latency_median_s": 90,
+    "latency_sigma": 0.8,
+    "cost_per_hour": 120,
+    "error_rate": 0.03,
+    "fatigue_per_request": 0.01
+  },
+  "workers": 6,
+  "keep_traces": true,
+  "principal_replies": 1,
+  "blocks": [
+    {
+      "policies": [
+        "P1"
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ]
+    },
+    {
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7
+        }
+      ],
+      "runtime_overrides": [
+        "none"
+      ]
+    },
+    {
+      "_block": "P6 components at the semantic runtime",
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "authority_gate": false
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "confidence_gate": false
+        }
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ]
+    },
+    {
+      "_block": "P6 routing at no runtime (where routing can fire)",
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "route": "agent"
+        }
+      ],
+      "runtime_overrides": [
+        "none"
+      ]
+    }
+  ]
+}

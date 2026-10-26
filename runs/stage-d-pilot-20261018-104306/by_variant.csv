@@ -1,0 +1,16 @@
+variant,policy,n,success,harm,interventions_per_task,intervention_precision,intervention_recall
+ambiguous,P1,20,0.25,0.1,0.25,1.0,0.25
+ambiguous,"P6[authority_gate=False,threshold=0.7]",20,0.4,0.1,0.4,1.0,0.4
+ambiguous,"P6[confidence_gate=False,threshold=0.7]",20,0.35,0.2,0.35,1.0,0.35
+ambiguous,"P6[route=agent,threshold=0.7]",20,0.3,0.3,0.55,1.0,0.45
+ambiguous,P6[threshold=0.7],20,0.4,0.1,0.75,1.0,0.35
+authority,P1,20,0.0,0.1,0.0,nan,0.0
+authority,"P6[authority_gate=False,threshold=0.7]",20,0.05,0.7,0.05,1.0,0.05
+authority,"P6[confidence_gate=False,threshold=0.7]",20,0.8,0.0,0.8,1.0,0.8
+authority,"P6[route=agent,threshold=0.7]",20,0.8,0.0,1.05,1.0,0.8
+authority,P6[threshold=0.7],20,0.8,0.0,1.1,1.0,0.8
+base,P1,20,1.0,0.0,0.0,nan,nan
+base,"P6[authority_gate=False,threshold=0.7]",20,1.0,0.0,0.0,nan,nan
+base,"P6[confidence_gate=False,threshold=0.7]",20,1.0,0.0,0.0,nan,nan
+base,"P6[route=agent,threshold=0.7]",20,0.9,0.1,0.1,1.0,nan
+base,P6[threshold=0.7],20,1.0,0.0,0.45,0.8888888888888888,nan
