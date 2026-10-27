@@ -202,3 +202,21 @@ records.
 ### Deviations
 
 *(None yet.)*
+
+### Outcome (recorded after analysis, 2026-10-27)
+
+Run `runs/repair-20261027-101723`: 2,730 episodes, $23.95, no errors and no exclusions. Every
+response came from the requested model.
+
+- **R1 confirmed:** with repair primitives, harm fell from 14% to 1% (closed 11% → 0%; open
+  18% → 3%).
+- **R2 confirmed:** repair-aware wording, 14% → 2%.
+- **R3 not confirmed:** primitives vs wording, 1% vs 2% (p = 0.12).
+- **N4 non-inferior:** D2 1% vs no keys 0.5%.
+- **Primitive claim: yes. Wording claim: yes.**
+- New-key re-sends after a replay: D 75, D2 0. Agents used `cancel_partial` in 411 of 630 D2
+  episodes. P6 reference: 0/210 harm.
+- **Exploratory:** every remaining D2 harm episode began with an unkeyed first write, so there
+  was nothing to cancel.
+
+Details are in the run's `NOTES.md`.

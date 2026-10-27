@@ -1,0 +1,43 @@
+{
+  "state": "finished",
+  "updated_at": "2026-10-27T12:23:11-07:00",
+  "last_progress_at": "2026-10-27T12:23:11-07:00",
+  "done": 245,
+  "total": 245,
+  "remaining": 0,
+  "errors": 1,
+  "cost_usd": 0.2054,
+  "this_launch": {
+    "mode": "new",
+    "started_at": "2026-10-27T12:14:58-07:00",
+    "git_short": "45f28a6",
+    "clean": false,
+    "pid": 8040,
+    "workers": {
+      "anthropic": 8,
+      "scripted": 4,
+      "together": 12
+    },
+    "episodes_done": 245,
+    "elapsed_s": 493,
+    "episodes_per_hour": 1788.4,
+    "eta_s": null
+  },
+  "by_provider": {
+    "anthropic": {
+      "episodes": 100,
+      "errors": 0,
+      "cost_usd": 0.0967
+    },
+    "scripted": {
+      "episodes": 45,
+      "errors": 0,
+      "cost_usd": 0.0
+    },
+    "together": {
+      "episodes": 100,
+      "errors": 1,
+      "cost_usd": 0.1087
+    }
+  }
+}

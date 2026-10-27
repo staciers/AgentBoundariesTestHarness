@@ -44,7 +44,7 @@ def fault_label(faults: List[FaultSpec]) -> str:
 
 def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Agent] = None,
                 keep_world: bool = False) -> Dict[str, Any]:
-    scenario: Scenario = make_scenario(cfg.scenario)
+    scenario: Scenario = make_scenario(cfg.scenario, seed=cfg.seed)
     policy: ControlPolicy = make_policy(cfg.policy)
     agent = agent or make_agent(cfg.agent)
     rcfg = RuntimeConfig.parse(cfg.runtime) if cfg.runtime is not None else RuntimeConfig(mode=policy.runtime_mode)

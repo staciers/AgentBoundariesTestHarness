@@ -1,0 +1,67 @@
+{
+  "name": "stage-e-pilot-recheck",
+  "_comment": "Re-check after the Stage E pilot: ledger/ambiguous only, with the fix (intent is the later invoice; no hint in the prompt). Two models, seeds 900-904, the four block-A policies. Not analysed.",
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    }
+  ],
+  "human": {
+    "latency_median_s": 90,
+    "latency_sigma": 0.8,
+    "cost_per_hour": 120,
+    "error_rate": 0.03,
+    "fatigue_per_request": 0.01
+  },
+  "principal_replies": 1,
+  "keep_traces": true,
+  "workers": {
+    "anthropic": 8,
+    "openai": 8,
+    "together": 12,
+    "scripted": 4
+  },
+  "blocks": [
+    {
+      "_block": "A: held-out authority and ambiguity: P1, P6, P5 with runtime, hybrid",
+      "scenarios": [
+        "ledger/ambiguous"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        "P1",
+        {
+          "name": "P6",
+          "threshold": 0.7
+        },
+        {
+          "name": "P5",
+          "runtime": "semantic"
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "ask_human": true
+        }
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 5
+      }
+    }
+  ]
+}

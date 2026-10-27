@@ -75,6 +75,20 @@ A rule without `standing` is treated as always in force (conservative). Known ed
 `standing` looks at the whole end state, so an *approved* over-limit commitment combined
 with a cancelled unapproved duplicate would count as standing.
 
+## Rule baselines and held-out workloads (Stage E)
+
+- **Rule baselines.** The scripted engine runs a scenario's reference plan. Two deterministic
+  profiles serve as baselines for agent recovery:
+  - `rules_tuned` applies every per-task rule in the plan (validators, state checks, replan
+    targets, fallbacks).
+  - `rules_generic` replaces them with a domain-independent library (`_generic_plan`): re-read
+    after a rejection, retry with the same key, fall back to declared alternative tools.
+- **Parameterized scenarios.** `register(id, parameterized=True)` gives a scenario factory the
+  episode seed, so each seed is a different task instance. `make_scenario(id, seed)` builds it;
+  non-parameterized scenarios ignore the seed.
+- **Held-out family: `ledger`** (accounts payable; [`abh/domains/ledger.py`](../abh/domains/ledger.py)).
+  It's parameterized, and was written after the system and baselines were frozen, for Stage E.
+
 ## Execution contracts
 
 Each tool has an `ExecutionContract` ([`abh/contract.py`](../abh/contract.py)) declaring:

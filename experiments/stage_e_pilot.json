@@ -1,0 +1,200 @@
+{
+  "name": "stage-e-pilot",
+  "_comment": "Pilot for Stage E: the held-out ledger domain (all blocks) and the hybrid policy, on two models, seeds 900-904 (dev hybrid: seed 900). First LLM runs of the ledger domain: checks it for scenario defects and measures cost. Not analysed.",
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    }
+  ],
+  "human": {
+    "latency_median_s": 90,
+    "latency_sigma": 0.8,
+    "cost_per_hour": 120,
+    "error_rate": 0.03,
+    "fatigue_per_request": 0.01
+  },
+  "principal_replies": 1,
+  "keep_traces": true,
+  "workers": {
+    "anthropic": 8,
+    "openai": 8,
+    "together": 12,
+    "scripted": 4
+  },
+  "blocks": [
+    {
+      "_block": "H0: held-out, no fault (task solvable)",
+      "scenarios": [
+        "ledger/base"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        "P1"
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 5
+      }
+    },
+    {
+      "_block": "H1: held-out, hidden write: no keys vs runtime",
+      "scenarios": [
+        "ledger/base"
+      ],
+      "fault_conditions": [
+        [
+          "timeout_after_execution",
+          "delayed_visibility"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "expose_keys": false
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7
+        }
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 5
+      }
+    },
+    {
+      "_block": "H2: held-out semantic faults: LLM vs rule baselines vs workflow (semantic runtime)",
+      "scenarios": [
+        "ledger/base"
+      ],
+      "fault_conditions": [
+        "persistent_unavailable",
+        "precondition_changed",
+        "task_invalid_result"
+      ],
+      "policies": [
+        "P1"
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ],
+      "agents": [
+        {
+          "type": "anthropic",
+          "model": "claude-haiku-5-5",
+          "effort": "high"
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "zai-org/GLM-5.3-Flash",
+          "alias": "glm-5.3-flash",
+          "effort": "high",
+          "input_price": 0.15,
+          "output_price": 0.5,
+          "cache_read_price": 0.03
+        },
+        {
+          "type": "scripted",
+          "profile": "rules_tuned"
+        },
+        {
+          "type": "scripted",
+          "profile": "rules_generic"
+        },
+        {
+          "type": "scripted",
+          "profile": "workflow"
+        }
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 5
+      }
+    },
+    {
+      "_block": "A: held-out authority and ambiguity: P1, P6, P5 with runtime, hybrid",
+      "scenarios": [
+        "ledger/ambiguous",
+        "ledger/authority"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        "P1",
+        {
+          "name": "P6",
+          "threshold": 0.7
+        },
+        {
+          "name": "P5",
+          "runtime": "semantic"
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "ask_human": true
+        }
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 5
+      }
+    },
+    {
+      "_block": "Y: hybrid on development-domain ambiguity and authority",
+      "scenarios": [
+        "travel/ambiguous",
+        "travel/authority",
+        "commerce/ambiguous",
+        "commerce/authority",
+        "devops/ambiguous",
+        "devops/authority",
+        "scheduling/ambiguous",
+        "scheduling/authority",
+        "platform/ambiguous",
+        "platform/authority"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7
+        },
+        {
+          "name": "P5",
+          "runtime": "semantic"
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "ask_human": true
+        }
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 1
+      }
+    }
+  ]
+}

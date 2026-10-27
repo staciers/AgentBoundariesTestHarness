@@ -1,0 +1,389 @@
+{
+  "name": "stage-e",
+  "_comment": "Stage E (OSDI condition 2): rule-based recovery baselines and a held-out, parameterized workload family (ledger), plus the P5+P6 hybrid. Pre-registered in docs/preregistration/stage-e.md. Do not change after the run starts.",
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-opus-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6.1-sol",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6-luna",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "alias": "deepseek-v4-pro-0813",
+      "effort": "high",
+      "input_price": 1.32,
+      "output_price": 3.96,
+      "cache_read_price": 0.13
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3",
+      "alias": "glm-5.3",
+      "effort": "high",
+      "input_price": 1.4,
+      "output_price": 4.4,
+      "cache_read_price": 0.26
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "alias": "deepseek-v4.1-flash-1017",
+      "effort": "high",
+      "input_price": 0.3,
+      "output_price": 1.2,
+      "cache_read_price": 0.006
+    }
+  ],
+  "human": {
+    "latency_median_s": 90,
+    "latency_sigma": 0.8,
+    "cost_per_hour": 120,
+    "error_rate": 0.03,
+    "fatigue_per_request": 0.01
+  },
+  "principal_replies": 1,
+  "keep_traces": true,
+  "workers": {
+    "anthropic": 8,
+    "openai": 8,
+    "together": 12,
+    "scripted": 4
+  },
+  "blocks": [
+    {
+      "_block": "S: strong baselines on development-domain semantic faults (semantic runtime for all)",
+      "scenarios": [
+        "travel/base",
+        "commerce/base",
+        "devops/base",
+        "scheduling/base",
+        "platform/base"
+      ],
+      "fault_conditions": [
+        "persistent_unavailable",
+        "precondition_changed",
+        "task_invalid_result"
+      ],
+      "policies": [
+        "P1"
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ],
+      "agents": [
+        {
+          "type": "anthropic",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        },
+        {
+          "type": "anthropic",
+          "model": "claude-haiku-5-5",
+          "effort": "high"
+        },
+        {
+          "type": "openai",
+          "model": "gpt-6.1-sol",
+          "effort": "high"
+        },
+        {
+          "type": "openai",
+          "model": "gpt-6-luna",
+          "effort": "high"
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+          "alias": "deepseek-v4-pro-0813",
+          "effort": "high",
+          "input_price": 1.32,
+          "output_price": 3.96,
+          "cache_read_price": 0.13
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "zai-org/GLM-5.3",
+          "alias": "glm-5.3",
+          "effort": "high",
+          "input_price": 1.4,
+          "output_price": 4.4,
+          "cache_read_price": 0.26
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "zai-org/GLM-5.3-Flash",
+          "alias": "glm-5.3-flash",
+          "effort": "high",
+          "input_price": 0.15,
+          "output_price": 0.5,
+          "cache_read_price": 0.03
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+          "alias": "deepseek-v4.1-flash-1017",
+          "effort": "high",
+          "input_price": 0.3,
+          "output_price": 1.2,
+          "cache_read_price": 0.006
+        },
+        {
+          "type": "scripted",
+          "profile": "rules_tuned"
+        },
+        {
+          "type": "scripted",
+          "profile": "rules_generic"
+        },
+        {
+          "type": "scripted",
+          "profile": "workflow"
+        }
+      ],
+      "seeds": {
+        "start": 400,
+        "count": 10
+      }
+    },
+    {
+      "_block": "H0: held-out, no fault (task solvable)",
+      "scenarios": [
+        "ledger/base"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        "P1"
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ],
+      "seeds": {
+        "start": 400,
+        "count": 30
+      }
+    },
+    {
+      "_block": "H1: held-out, hidden write: no keys vs runtime",
+      "scenarios": [
+        "ledger/base"
+      ],
+      "fault_conditions": [
+        [
+          "timeout_after_execution",
+          "delayed_visibility"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "expose_keys": false
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7
+        }
+      ],
+      "seeds": {
+        "start": 400,
+        "count": 30
+      }
+    },
+    {
+      "_block": "H2: held-out semantic faults: LLM vs rule baselines vs workflow (semantic runtime)",
+      "scenarios": [
+        "ledger/base"
+      ],
+      "fault_conditions": [
+        "persistent_unavailable",
+        "precondition_changed",
+        "task_invalid_result"
+      ],
+      "policies": [
+        "P1"
+      ],
+      "runtime_overrides": [
+        "semantic"
+      ],
+      "agents": [
+        {
+          "type": "anthropic",
+          "model": "claude-opus-5-5",
+          "effort": "high"
+        },
+        {
+          "type": "anthropic",
+          "model": "claude-haiku-5-5",
+          "effort": "high"
+        },
+        {
+          "type": "openai",
+          "model": "gpt-6.1-sol",
+          "effort": "high"
+        },
+        {
+          "type": "openai",
+          "model": "gpt-6-luna",
+          "effort": "high"
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+          "alias": "deepseek-v4-pro-0813",
+          "effort": "high",
+          "input_price": 1.32,
+          "output_price": 3.96,
+          "cache_read_price": 0.13
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "zai-org/GLM-5.3",
+          "alias": "glm-5.3",
+          "effort": "high",
+          "input_price": 1.4,
+          "output_price": 4.4,
+          "cache_read_price": 0.26
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "zai-org/GLM-5.3-Flash",
+          "alias": "glm-5.3-flash",
+          "effort": "high",
+          "input_price": 0.15,
+          "output_price": 0.5,
+          "cache_read_price": 0.03
+        },
+        {
+          "type": "compat",
+          "provider": "together",
+          "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+          "alias": "deepseek-v4.1-flash-1017",
+          "effort": "high",
+          "input_price": 0.3,
+          "output_price": 1.2,
+          "cache_read_price": 0.006
+        },
+        {
+          "type": "scripted",
+          "profile": "rules_tuned"
+        },
+        {
+          "type": "scripted",
+          "profile": "rules_generic"
+        },
+        {
+          "type": "scripted",
+          "profile": "workflow"
+        }
+      ],
+      "seeds": {
+        "start": 400,
+        "count": 30
+      }
+    },
+    {
+      "_block": "A: held-out authority and ambiguity: P1, P6, P5 with runtime, hybrid",
+      "scenarios": [
+        "ledger/ambiguous",
+        "ledger/authority"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        "P1",
+        {
+          "name": "P6",
+          "threshold": 0.7
+        },
+        {
+          "name": "P5",
+          "runtime": "semantic"
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "ask_human": true
+        }
+      ],
+      "seeds": {
+        "start": 400,
+        "count": 20
+      }
+    },
+    {
+      "_block": "Y: hybrid on development-domain ambiguity and authority",
+      "scenarios": [
+        "travel/ambiguous",
+        "travel/authority",
+        "commerce/ambiguous",
+        "commerce/authority",
+        "devops/ambiguous",
+        "devops/authority",
+        "scheduling/ambiguous",
+        "scheduling/authority",
+        "platform/ambiguous",
+        "platform/authority"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7
+        },
+        {
+          "name": "P5",
+          "runtime": "semantic"
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7,
+          "ask_human": true
+        }
+      ],
+      "seeds": {
+        "start": 400,
+        "count": 3
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+variant,policy,n,success,harm,interventions_per_task,intervention_precision,intervention_recall
+ambiguous,P1,10,1.0,0.0,0.5,1.0,0.5
+ambiguous,P5[runtime=semantic],20,0.75,0.05,0.5,1.0,0.5
+ambiguous,"P6[ask_human=True,threshold=0.7]",20,0.8,0.0,0.55,1.0,0.55
+ambiguous,P6[threshold=0.7],20,0.65,0.1,0.4,1.0,0.4
+authority,P1,10,0.0,0.3,0.0,nan,0.0
+authority,P5[runtime=semantic],20,0.95,0.05,0.95,1.0,0.95
+authority,"P6[ask_human=True,threshold=0.7]",20,1.0,0.0,1.0,1.0,1.0
+authority,P6[threshold=0.7],20,0.85,0.0,0.85,1.0,0.85
+base,P1,85,0.7058823529411765,0.17647058823529413,0.0,nan,nan
+base,P1[expose_keys=False],10,0.6,0.4,0.0,nan,nan
+base,P6[threshold=0.7],10,1.0,0.0,0.0,nan,nan

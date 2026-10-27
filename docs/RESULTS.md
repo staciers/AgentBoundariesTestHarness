@@ -2,8 +2,8 @@
 
 *Allocating control across runtimes, agents and humans in stateful tool-using AI systems*
 
-**Status:** results through 2026-10-27. Eight pre-registered studies are complete: 39,936
-LLM episodes across 11 models (4 families plus a frontier tier), at $389.18 total API spend,
+**Status:** results through 2026-10-27. Nine pre-registered studies are complete: 42,756
+LLM episodes across 11 models (4 families plus a frontier tier), at $413.30 total API spend,
 including pilots, exploratory runs and re-run episodes. (Deterministic workflow-baseline
 episodes are additional and cost nothing.)
 
@@ -76,6 +76,7 @@ The evidence supports that allocation, and sharpens it in four ways.
 | Stage B | Humans: H3, H4, H7, RQ3–RQ5 (8 models) | [stage-b](preregistration/stage-b.md) ([`a39b53c`](https://github.com/staciers/AgentBoundariesTestHarness/commit/a39b53c)) | [spec](../experiments/stage_b.json) | [episodes](../runs/stage-b-20261015-075812/episodes.jsonl) | [stage_b.md](../runs/stage-b-20261015-075812/stage_b.md) · [human_cost.md](../runs/stage-b-20261015-075812/human_cost.md) · [notes](../runs/stage-b-20261015-075812/NOTES.md) | 7,920 | $69.16 |
 | Stage D | Runtime × policy factorial; P6 components (8 models) | [stage-d](preregistration/stage-d.md) ([`32cb181`](https://github.com/staciers/AgentBoundariesTestHarness/commit/32cb181)) | [spec](../experiments/stage_d.json) | [episodes](../runs/stage-d-20261018-111143/episodes.jsonl) | [stage_d.md](../runs/stage-d-20261018-111143/stage_d.md) · [notes](../runs/stage-d-20261018-111143/NOTES.md) | 10,800 | $86.25 |
 | Contracts | Key scope × key description (Q4); 7 models after one was withdrawn | [contracts](preregistration/contracts.md) ([`45b0e78`](https://github.com/staciers/AgentBoundariesTestHarness/commit/45b0e78)) | [spec](../experiments/contracts.json) | [episodes](../runs/contracts-20261026-140610/episodes.jsonl) | [contracts.md](../runs/contracts-20261026-140610/contracts.md) · [notes](../runs/contracts-20261026-140610/NOTES.md) | 4,480 (3,920 analysed) | $37.40 |
+| Repair | Contract-declared repair of partial commits (Q4 follow-up; 7 models) | [repair](preregistration/repair.md) ([`45f28a6`](https://github.com/staciers/AgentBoundariesTestHarness/commit/45f28a6)) | [spec](../experiments/repair.json) | [episodes](../runs/repair-20261027-101723/episodes.jsonl) | [repair.md](../runs/repair-20261027-101723/repair.md) · [notes](../runs/repair-20261027-101723/NOTES.md) | 2,730 | $23.95 |
 
 **Supporting runs:**
 
@@ -380,8 +381,34 @@ by the provider):
   key after the replayed partial failure.
 - **The P6 runtime had 0% harm under every contract.**
 
-Execution recovery therefore belongs to the runtime. Contracts make it explicit, and they help
-the agent only when they also say how to repair a partial outcome.
+**The repair study then tested contract-declared repair** under the atomic scope
+([pre-registration](preregistration/repair.md),
+[analysis](../runs/repair-20261027-101723/repair.md),
+[notes](../runs/repair-20261027-101723/NOTES.md); travel and commerce, 7 models). D2 adds two things
+to the contract:
+- a structured partial report, listing what committed
+- a `cancel_partial(tool, key)` operation that undoes exactly what that key committed, after which
+  the full request can go again with the same key
+
+| Arm | Harm | Closed | Open | Re-sent with a new key after a replay |
+|---|---|---|---|---|
+| D: no repair guidance | 14% | 11% | 18% | 75 |
+| D1: repair-aware wording | 2% | 0% | 6% | 11 |
+| D2: partial report + `cancel_partial` | **1%** | **0%** | **3%** | **0** |
+| N: no keys | 0.5% | 1% | 0% | — |
+
+- **R1** (D > D2) and **R2** (D > D1) confirmed; **R3** (D1 > D2) not confirmed.
+- **N4: D2 is non-inferior to no keys.** With contract-declared repair primitives, agent-side
+  recovery from a hidden partial commit is as safe as not using keys.
+- *Exploratory:* every remaining D2 harm episode began with an unkeyed first write (GLM models),
+  so there was nothing to cancel.
+
+**So the allocation is:**
+- The **contract** defines the execution semantics and the repair operations.
+- The **runtime** guarantees keys are attached and recovers on its own (0% harm under every
+  contract tested).
+- An **agent** that recovers itself is safe through the contract's primitives, provided it keys
+  its writes.
 ---
 
 ## 5. Exploratory findings
@@ -433,7 +460,7 @@ the agent only when they also say how to repair a partial outcome.
 | **Authority** | **Human,** routed deterministically by policy, not by agent confidence | Confirmatory: B1, B5, D4, K1 |
 | **Recognized ambiguity** | **Human,** via the agent asking | Confirmatory: B1; pilot evidence |
 | **Unrecognized ambiguity** | **Human,** but current confidence-based routing misses it | Confirmatory: N1 (not met), B6 |
-| **Execution-safety mechanisms** (idempotency keys) | **Runtime, not agent.** Agents misuse them (keys hazard; key discipline); declaring the key's scope in a contract fixes the description, not the recovery | Confirmatory: C3, C5, G4, K1–K3; exploratory: key discipline, contract wording |
+| **Execution-safety mechanisms** (idempotency keys) | **Runtime, not agent.** Agents misuse them (keys hazard; key discipline); contracts that declare the key's scope, a partial report and a repair operation make agent recovery safe (R1, N4), provided the agent keys its writes | Confirmatory: C3, C5, G4, K1–K3, R1–R2, N4; exploratory: key discipline, contract wording |
 
 ---
 
@@ -505,6 +532,7 @@ cd /tmp/prereg && PYTHONPATH=$PWD /path/to/repo/.venv/bin/python analysis/stage_
 | Stage B | `a39b53c` | `analysis/stage_b.py runs/stage-b-20261015-075812/` and `python -m abh human-cost runs/stage-b-20261015-075812/` |
 | Stage D | `32cb181` | `analysis/stage_d.py runs/stage-d-20261018-111143/` |
 | Contracts | `45b0e78` | `analysis/contracts.py runs/contracts-20261026-140610/` |
+| Repair | `45f28a6` | `analysis/repair.py runs/repair-20261027-101723/` |
 
 Episodes with saved traces can also be re-scored under a changed evaluator, with no model calls:
 `python -m abh rescore runs/<dir>` ([how it works](ARCHITECTURE.md#re-scoring-old-runs)).

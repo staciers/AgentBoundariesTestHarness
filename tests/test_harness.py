@@ -1195,3 +1195,50 @@ class TestContractRepair(unittest.TestCase):
         self.assertIn("cancel_partial", names(self.REPAIR))
         self.assertNotIn("cancel_partial", names({"key_scope": "atomic", "repair": "prose"}))
         self.assertNotIn("cancel_partial", names(None))
+
+
+class TestStageE(unittest.TestCase):
+    def ep(self, scenario, policy, profile, faults=(), runtime=None, seed=0):
+        fs = [FaultSpec.parse(f).to_dict() for f in faults]
+        return run_episode(EpisodeConfig(scenario, policy, {"type": "scripted", "profile": profile}, fs,
+                                         "+".join(faults) or "none", runtime, None, seed))
+
+    def test_ledger_is_parameterized_by_seed(self):
+        from abh.domains.base import is_parameterized
+        self.assertTrue(is_parameterized("ledger/base"))
+        self.assertFalse(is_parameterized("travel/base"))
+        prompts = {make_scenario("ledger/base", seed=s).prompt for s in range(8)}
+        self.assertGreater(len(prompts), 3)  # different vendors across instances
+        self.assertEqual(make_scenario("ledger/base", seed=5).prompt, make_scenario("ledger/base", seed=5).prompt)
+        self.assertEqual(make_scenario("travel/base", seed=5).prompt, make_scenario("travel/base").prompt)
+
+    def test_ledger_faults_behave_like_other_domains(self):
+        hw = ["timeout_after_execution", "delayed_visibility"]
+        pc = ["partial_mutation", "timeout_after_execution"]
+        for seed in range(3):
+            self.assertTrue(self.ep("ledger/base", "P1", "careful", seed=seed)["success"])
+            self.assertTrue(self.ep("ledger/base", {"name": "P1", "expose_keys": False}, "naive", hw, seed=seed)["harm"])
+            self.assertTrue(self.ep("ledger/base", "P6", "naive", hw, seed=seed)["success"])
+            self.assertTrue(self.ep("ledger/base", "P1", "naive", pc, seed=seed)["harm"])
+            self.assertTrue(self.ep("ledger/base", "P6", "naive", pc, seed=seed)["success"])
+
+    def test_rule_baselines(self):
+        # Tuned rules recover every development-domain semantic fault; generic rules can't validate
+        # a task-invalid result without task knowledge; the workflow recovers nothing.
+        r = lambda prof, fault, sc="travel/base": self.ep(sc, "P1", prof, [fault], "semantic")
+        self.assertTrue(r("rules_tuned", "task_invalid_result")["success"])
+        self.assertFalse(r("rules_generic", "task_invalid_result")["success"])
+        self.assertTrue(r("rules_generic", "persistent_unavailable")["success"])
+        self.assertTrue(r("rules_generic", "precondition_changed")["success"])
+        self.assertFalse(r("workflow", "persistent_unavailable")["success"])
+        # On the held-out domain, spec-derived rules catch the anticipated faults but not the duplicate.
+        self.assertTrue(r("rules_generic", "precondition_changed", "ledger/base")["success"])
+        self.assertTrue(r("rules_generic", "persistent_unavailable", "ledger/base")["success"])
+        self.assertTrue(r("rules_generic", "task_invalid_result", "ledger/base")["harm"])
+
+    def test_generic_plan_drops_task_rules(self):
+        from abh.agents.scripted import _generic_plan
+        plan = _generic_plan(make_scenario("commerce/base").plan)
+        self.assertTrue(all(st.valid is None and st.check is None for st in plan))
+        self.assertTrue(all(st.on_reject == plan[0].name for st in plan))
+        self.assertTrue(any(st.fallback for st in plan))  # declared alternatives are kept

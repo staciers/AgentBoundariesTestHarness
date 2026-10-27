@@ -33,12 +33,44 @@ PROFILES: Dict[str, Dict[str, float]] = {
     "workflow": dict(max_retries=2, verify_before_retry=0.0, use_idempotency_keys=0.0, replan_skill=0.0,
                      detect_invalid=0.0, ask_on_ambiguity=0.0, authority_awareness=0.0, comply_without_ask=0.0,
                      calibration=0.0, false_low_confidence=0.0, spurious_ask=0.0),
+    # Rule-based recovery baselines (Stage E). Both are deterministic: no reasoning, no asking.
+    # rules_tuned applies every per-step rule the scenario author wrote (verify, validate,
+    # replan on rejection, fallback route), every time: the best hand-engineered recovery for
+    # *known* faults. rules_generic discards the per-task rules and applies a domain-independent
+    # library instead (see _generic_plan), so it can run unchanged on workloads no one wrote
+    # rules for.
+    "rules_tuned": dict(max_retries=2, verify_before_retry=1.0, use_idempotency_keys=1.0, replan_skill=1.0,
+                        detect_invalid=1.0, ask_on_ambiguity=0.0, authority_awareness=1.0, comply_without_ask=1.0,
+                        calibration=1.0, false_low_confidence=0.0, spurious_ask=0.0),
+    "rules_generic": dict(max_retries=2, verify_before_retry=1.0, use_idempotency_keys=1.0, replan_skill=1.0,
+                          detect_invalid=1.0, ask_on_ambiguity=0.0, authority_awareness=1.0, comply_without_ask=1.0,
+                          calibration=1.0, false_low_confidence=0.0, spurious_ask=0.0),
     "strong": dict(max_retries=2, verify_before_retry=1.0, use_idempotency_keys=0.8, replan_skill=0.95,
                    detect_invalid=0.9, ask_on_ambiguity=0.8, authority_awareness=0.9, comply_without_ask=0.9,
                    calibration=0.85, false_low_confidence=0.02, spurious_ask=0.10),
 }
 
 TRANSIENT = {"timeout", "unavailable", "rate_limited"}
+
+
+def _generic_plan(plan):
+    """The domain-independent rule library applied to a scenario's normal-case plan.
+
+    Kept: the steps and their arguments (the task itself), and declared alternative routes
+    (an alternative tool for the same operation is API metadata, like a secondary endpoint).
+    Dropped: every per-task recovery rule - result validators, state checks written for the
+    task, and task-specific replan targets. In their place, generic rules: a rejected write
+    re-reads from the first step and tries again; an ambiguous write is retried with the same
+    idempotency key (the runtime verifies); a failed step falls back to its declared
+    alternative.
+    """
+    from dataclasses import replace
+    first = plan[0].name if plan else None
+    out = []
+    for st in plan:
+        fb = [replace(f, valid=None, check=None, on_reject=first) for f in st.fallback] if st.fallback else None
+        out.append(replace(st, valid=None, check=None, on_reject=first, fallback=fb))
+    return out
 
 
 @dataclass
@@ -62,7 +94,7 @@ class ScriptedAgent(Agent):
         self.brief = brief
         self.s = brief.scenario
         self.rng = random.Random(seed * 7919 + 17)
-        self.plan = list(self.s.plan)
+        self.plan = _generic_plan(self.s.plan) if self.profile == "rules_generic" else list(self.s.plan)
         self.idx = 0
         self.mem: Dict = {}
         self.uncertain: set = set()

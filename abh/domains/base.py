@@ -158,19 +158,32 @@ class Scenario:
 
 
 # ------------------------------------------------------------- registry
-_REGISTRY: Dict[str, Callable[[], Scenario]] = {}
+_REGISTRY: Dict[str, Callable[..., Scenario]] = {}
+_PARAMETERIZED: Set[str] = set()
 
 
-def register(scenario_id: str):
-    def deco(fn: Callable[[], Scenario]):
+def register(scenario_id: str, parameterized: bool = False):
+    """Register a scenario factory. A parameterized factory takes the episode seed and builds a
+    different task instance per seed (entities, amounts, ids, distractors)."""
+    def deco(fn: Callable[..., Scenario]):
         _REGISTRY[scenario_id] = fn
+        if parameterized:
+            _PARAMETERIZED.add(scenario_id)
         return fn
     return deco
 
 
-def make_scenario(scenario_id: str) -> Scenario:
+def make_scenario(scenario_id: str, seed: Optional[int] = None) -> Scenario:
+    """Build a scenario. Parameterized scenarios use ``seed`` to pick the instance (default 0)."""
     _ensure_loaded()
+    if scenario_id in _PARAMETERIZED:
+        return _REGISTRY[scenario_id](0 if seed is None else seed)
     return _REGISTRY[scenario_id]()
+
+
+def is_parameterized(scenario_id: str) -> bool:
+    _ensure_loaded()
+    return scenario_id in _PARAMETERIZED
 
 
 def list_scenarios(domain: Optional[str] = None) -> List[str]:
@@ -179,7 +192,7 @@ def list_scenarios(domain: Optional[str] = None) -> List[str]:
 
 
 def _ensure_loaded():
-    from . import travel, commerce, devops, scheduling, platform  # noqa: F401
+    from . import travel, commerce, devops, scheduling, platform, ledger  # noqa: F401
 
 
 # --------------------------------------------------------------- helpers

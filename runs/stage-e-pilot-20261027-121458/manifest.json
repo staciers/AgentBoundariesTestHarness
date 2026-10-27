@@ -1,0 +1,44 @@
+{
+  "launches": [
+    {
+      "mode": "new",
+      "started_at": "2026-10-27T12:14:58-07:00",
+      "git_commit": "45f28a69f65a837a3e9b2e6d17dff1936998b025",
+      "git_short": "45f28a6",
+      "clean": false,
+      "dirty_paths": [
+        "abh/agents/scripted.py",
+        "abh/domains/base.py",
+        "abh/episode.py",
+        "abh/domains/ledger.py",
+        "analysis/stage_e.py",
+        "experiments/stage_e.json",
+        "experiments/stage_e_pilot.json"
+      ],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 8040,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/stage_e_pilot.json"
+      ],
+      "workers": {
+        "anthropic": 8,
+        "scripted": 4,
+        "together": 12
+      },
+      "episodes_in_spec": 245,
+      "episodes_to_run": 245,
+      "request_options": {}
+    }
+  ]
+}
