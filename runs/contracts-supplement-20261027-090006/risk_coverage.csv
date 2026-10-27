@@ -1,0 +1,5 @@
+policy,policy_name,agent,n,autonomous_coverage,autonomous_failure_rate,autonomous_harm_rate,harm,success,interventions_per_task
+P1,P1,together:deepseek-v4.1-flash-1017@high,260,0.9846153846153847,0.015384615384615385,0.015384615384615385,0.015384615384615385,0.9846153846153847,0.0
+P1[expose_keys=False],P1,together:deepseek-v4.1-flash-1017@high,90,1.0,0.0,0.0,0.0,1.0,0.0
+P1[key_description=contract],P1,together:deepseek-v4.1-flash-1017@high,180,0.9777777777777777,0.022222222222222223,0.022222222222222223,0.022222222222222223,0.9777777777777777,0.0
+P6[threshold=0.7],P6,together:deepseek-v4.1-flash-1017@high,30,0.9666666666666667,0.0,0.0,0.0,1.0,0.03333333333333333

@@ -1,0 +1,5 @@
+variant,policy,n,success,harm,interventions_per_task,intervention_precision,intervention_recall
+base,P1,2080,0.7144230769230769,0.1605769230769231,0.0,nan,nan
+base,P1[expose_keys=False],720,0.8416666666666667,0.03333333333333333,0.0,nan,nan
+base,P1[key_description=contract],1440,0.7708333333333334,0.10416666666666667,0.0,nan,nan
+base,P6[threshold=0.7],240,0.875,0.0,0.004166666666666667,0.0,nan

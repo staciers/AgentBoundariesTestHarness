@@ -2,8 +2,8 @@
 
 *Allocating control across runtimes, agents and humans in stateful tool-using AI systems*
 
-**Status:** results through 2026-10-18. Seven pre-registered studies are complete: 35,366
-LLM episodes across 10 models (4 families plus a frontier tier), at $350.24 total API spend,
+**Status:** results through 2026-10-27. Eight pre-registered studies are complete: 39,936
+LLM episodes across 11 models (4 families plus a frontier tier), at $389.18 total API spend,
 including pilots, exploratory runs and re-run episodes. (Deterministic workflow-baseline
 episodes are additional and cost nothing.)
 
@@ -75,6 +75,7 @@ The evidence supports that allocation, and sharpens it in four ways.
 | Open replication 2 | Stage A design, open weights | same ([`53d1fc8`](https://github.com/staciers/AgentBoundariesTestHarness/commit/53d1fc8)) | [spec](../experiments/open_stage_a.json) | [episodes](../runs/open-stage-a-20261014-081413/episodes.jsonl) | [replication_stage_a.md](../runs/open-stage-a-20261014-081413/replication_stage_a.md) · [notes](../runs/open-stage-a-20261014-081413/NOTES.md) | 4,690 | $15.20 |
 | Stage B | Humans: H3, H4, H7, RQ3–RQ5 (8 models) | [stage-b](preregistration/stage-b.md) ([`a39b53c`](https://github.com/staciers/AgentBoundariesTestHarness/commit/a39b53c)) | [spec](../experiments/stage_b.json) | [episodes](../runs/stage-b-20261015-075812/episodes.jsonl) | [stage_b.md](../runs/stage-b-20261015-075812/stage_b.md) · [human_cost.md](../runs/stage-b-20261015-075812/human_cost.md) · [notes](../runs/stage-b-20261015-075812/NOTES.md) | 7,920 | $69.16 |
 | Stage D | Runtime × policy factorial; P6 components (8 models) | [stage-d](preregistration/stage-d.md) ([`32cb181`](https://github.com/staciers/AgentBoundariesTestHarness/commit/32cb181)) | [spec](../experiments/stage_d.json) | [episodes](../runs/stage-d-20261018-111143/episodes.jsonl) | [stage_d.md](../runs/stage-d-20261018-111143/stage_d.md) · [notes](../runs/stage-d-20261018-111143/NOTES.md) | 10,800 | $86.25 |
+| Contracts | Key scope × key description (Q4); 7 models after one was withdrawn | [contracts](preregistration/contracts.md) ([`45b0e78`](https://github.com/staciers/AgentBoundariesTestHarness/commit/45b0e78)) | [spec](../experiments/contracts.json) | [episodes](../runs/contracts-20261026-140610/episodes.jsonl) | [contracts.md](../runs/contracts-20261026-140610/contracts.md) · [notes](../runs/contracts-20261026-140610/NOTES.md) | 4,480 (3,920 analysed) | $37.40 |
 
 **Supporting runs:**
 
@@ -352,6 +353,35 @@ description ("executed at most once") drives much of the effect, and an accurate
 largely removes it. This is a direct design lesson for tool and MCP schema authors. Neutral
 wording falls in between (exploratory: 14%).
 
+**The contract study bounds this** ([pre-registration](preregistration/contracts.md),
+[analysis](../runs/contracts-20261026-140610/contracts.md),
+[notes](../runs/contracts-20261026-140610/NOTES.md)). It crossed what the key covers (`completed`,
+as above, vs `atomic`: recorded with any committed part, so a retry returns the original
+outcome) with how the key is described ("at most once" vs generated from the
+[execution contract](ARCHITECTURE.md#execution-contracts)). Harm with 7 models (one was withdrawn
+by the provider):
+
+| Arm | Harm | Closed | Open | Verdict |
+|---|---|---|---|---|
+| A: completed scope, "at most once" | 18% | 26% | 9% | — |
+| B: completed scope, contract wording | **5%** | **1%** | 10% | K2 (A > B) confirmed |
+| C: atomic scope, "at most once" | 7% | 5% | 10% | K1 (A > C) confirmed |
+| D: atomic scope, contract wording | 19% | 8% | **33%** | exploratory: backfired |
+| N: no keys | 4% | 1% | 8% | K3 (A > N) confirmed |
+
+- **What it shows:**
+  - The hazard is a scope mismatch.
+  - For closed models, either an atomic scope or an accurate description removes duplication
+    entirely (91 → 0 episodes).
+  - The atomic scope still left more harm than no keys (N1 not shown). That residual is partial
+    work left in place, not duplication.
+- **The wording result needs care.** The generated atomic-scope wording said retries are safe.
+  Agents checked less, and many (mostly open models) then re-sent the whole request with a new
+  key after the replayed partial failure.
+- **The P6 runtime had 0% harm under every contract.**
+
+Execution recovery therefore belongs to the runtime. Contracts make it explicit, and they help
+the agent only when they also say how to repair a partial outcome.
 ---
 
 ## 5. Exploratory findings
@@ -403,7 +433,7 @@ wording falls in between (exploratory: 14%).
 | **Authority** | **Human,** routed deterministically by policy, not by agent confidence | Confirmatory: B1, B5, D4, K1 |
 | **Recognized ambiguity** | **Human,** via the agent asking | Confirmatory: B1; pilot evidence |
 | **Unrecognized ambiguity** | **Human,** but current confidence-based routing misses it | Confirmatory: N1 (not met), B6 |
-| **Execution-safety mechanisms** (idempotency keys) | **Runtime, not agent.** Agents misuse them (keys hazard; key discipline) | Confirmatory: C3, C5, G4; exploratory: key discipline |
+| **Execution-safety mechanisms** (idempotency keys) | **Runtime, not agent.** Agents misuse them (keys hazard; key discipline); declaring the key's scope in a contract fixes the description, not the recovery | Confirmatory: C3, C5, G4, K1–K3; exploratory: key discipline, contract wording |
 
 ---
 
@@ -474,6 +504,7 @@ cd /tmp/prereg && PYTHONPATH=$PWD /path/to/repo/.venv/bin/python analysis/stage_
 | Open replications | `53d1fc8` | `analysis/replication.py confirm runs/open-confirm-20261014-081413/` · `... stage-a runs/open-stage-a-20261014-081413/` |
 | Stage B | `a39b53c` | `analysis/stage_b.py runs/stage-b-20261015-075812/` and `python -m abh human-cost runs/stage-b-20261015-075812/` |
 | Stage D | `32cb181` | `analysis/stage_d.py runs/stage-d-20261018-111143/` |
+| Contracts | `45b0e78` | `analysis/contracts.py runs/contracts-20261026-140610/` |
 
 Episodes with saved traces can also be re-scored under a changed evaluator, with no model calls:
 `python -m abh rescore runs/<dir>` ([how it works](ARCHITECTURE.md#re-scoring-old-runs)).

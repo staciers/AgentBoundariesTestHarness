@@ -173,4 +173,53 @@ No change to the design, hypotheses or tests.
 
 ### Deviations
 
-*(None yet.)*
+**2026-10-26: one model withdrawn by the provider (recorded before any outcome was seen).**
+- **What happened:** all 560 `DeepSeek-V4-Flash-0731` episodes failed before their first model
+  call. Together returned HTTP 400 `endpoint_not_configured` ("Endpoint has no deployments
+  configured for routing"). The model no longer appears in Together's model list;
+  `DeepSeek-V4.1-Flash` and `DeepSeek-V4.1-Flash-1017` now appear instead. It was last served in
+  Stage D (2026-10-18).
+- **Per the exclusion rule:** all 560 were re-run from `45b0e78` (`--rerun-errors`), and all
+  failed the same way. They are **excluded and counted**. The registered analysis therefore runs
+  on 7 of the 8 models (3,920 analysed episodes). The originals are in
+  `episodes_rerun_originals.jsonl`.
+- **No cost:** no model call was made.
+- **Nothing else changed:** all other episodes completed with no errors, 2 API retries and no
+  timeouts. Every other Together response came from its requested model.
+- **The registered sensitivity analysis (`52148b2`) can't apply,** because there is no fix to
+  re-run with: the model itself is unavailable.
+
+**Decision (2026-10-27, before the analysis was run and before any outcome was seen):** add
+`deepseek-ai/DeepSeek-V4.1-Flash-1017` (Together; dated snapshot; $0.30 / $1.20 per million
+input / output tokens) as an **exploratory supplement**.
+- **Design:** exactly the main design (all blocks, seeds, arms and settings), with only this
+  model ([`experiments/contracts_supplement.json`](../../experiments/contracts_supplement.json)),
+  run into its own folder.
+- **Primary analysis unchanged:** 7 models, as registered.
+- **The supplement is reported separately** and labelled exploratory. It is never pooled into
+  K1–K3, N1–N2 or E1, because it is a different model.
+
+### Outcome (recorded after analysis, 2026-10-27)
+
+Run `runs/contracts-20261026-140610`: 4,480 episodes, $37.40. 560 were excluded (the withdrawn
+model, above), leaving 3,920 analysed on 7 models.
+
+- **K1 confirmed:** an atomic key scope reduces harm (18% → 7%).
+- **K2 confirmed:** contract-generated descriptions reduce harm with the service unchanged
+  (18% → 5%; closed models 26% → 1%).
+- **K3 confirmed:** the keys hazard replicates on fresh seeds (18% vs 4% without keys).
+- **N1 and N2 not shown:**
+  - Under an atomic scope, harm stays above the no-keys level (7%, and 19% with contract
+    wording).
+- **E1 inconclusive.**
+- **Scope claim:** not established as registered. **Interface claim:** yes.
+
+**Exploratory findings** (details in the run's `NOTES.md`):
+- For closed models, both fixes remove duplicates entirely (91 → 0 episodes). The remaining
+  harm under an atomic scope is partial work left in place.
+- The generated atomic-scope description lowered checking before retrying (52%). Many agents,
+  mostly open models, then re-sent the whole request with a new key after the replayed partial
+  failure, the route anticipated above.
+- Open models are dominated by poor key discipline.
+- The P6 runtime had 0/210 harm.
+- The supplement model (V4.1 Flash) barely showed the hazard.

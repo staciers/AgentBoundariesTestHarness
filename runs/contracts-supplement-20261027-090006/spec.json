@@ -1,0 +1,117 @@
+{
+  "name": "contracts-supplement",
+  "_comment": "Exploratory supplement to the contract study: the main design with DeepSeek-V4.1-Flash-1017 only, added after Together withdrew DeepSeek-V4-Flash-0731 (see Deviations in docs/preregistration/contracts.md). Reported separately; never pooled into the confirmatory tests.",
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "devops/base",
+    "scheduling/base"
+  ],
+  "agents": [
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "alias": "deepseek-v4.1-flash-1017",
+      "effort": "high",
+      "input_price": 0.3,
+      "output_price": 1.2,
+      "cache_read_price": 0.006
+    }
+  ],
+  "seeds": {
+    "start": 200,
+    "count": 30
+  },
+  "workers": {
+    "anthropic": 8,
+    "openai": 8,
+    "together": 12
+  },
+  "keep_traces": true,
+  "blocks": [
+    {
+      "_block": "main: key scope x key description, hidden partial commit, plus no-keys control",
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        "P1",
+        {
+          "name": "P1",
+          "key_description": "contract"
+        }
+      ],
+      "contract_overrides": [
+        null,
+        {
+          "key_scope": "atomic"
+        }
+      ]
+    },
+    {
+      "_block": "no-keys control",
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "expose_keys": false
+        }
+      ]
+    },
+    {
+      "_block": "sanity: key scope under a hidden write (complete commit)",
+      "fault_conditions": [
+        [
+          "timeout_after_execution",
+          "delayed_visibility"
+        ]
+      ],
+      "policies": [
+        "P1"
+      ],
+      "contract_overrides": [
+        null,
+        {
+          "key_scope": "atomic"
+        }
+      ],
+      "seeds": {
+        "start": 200,
+        "count": 10
+      }
+    },
+    {
+      "_block": "reference: contract-driven runtime under an atomic scope",
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7
+        }
+      ],
+      "contract_overrides": [
+        {
+          "key_scope": "atomic"
+        }
+      ],
+      "seeds": {
+        "start": 200,
+        "count": 10
+      }
+    }
+  ]
+}
