@@ -1,0 +1,42 @@
+{
+  "launches": [
+    {
+      "mode": "new",
+      "started_at": "2026-10-27T10:05:55-07:00",
+      "git_commit": "4e6ff0ed1499138ffa2881ff24dd4d10fa5c9154",
+      "git_short": "4e6ff0e",
+      "clean": false,
+      "dirty_paths": [
+        "abh/contract.py",
+        "abh/controlplane.py",
+        "abh/tools.py",
+        "analysis/repair.py",
+        "experiments/repair.json",
+        "experiments/repair_pilot.json"
+      ],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 6068,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/repair_pilot.json"
+      ],
+      "workers": {
+        "anthropic": 8,
+        "together": 12
+      },
+      "episodes_in_spec": 90,
+      "episodes_to_run": 90,
+      "request_options": {}
+    }
+  ]
+}

@@ -19,6 +19,13 @@ An ``ExecutionContract`` declares it:
   read-your-writes; None = no bound promised).
 * **reconcile / postcondition / compensation** - whether the tool offers a lookup by key, a
   checkable postcondition, and an undo for an incomplete attempt.
+* **partial_report** - whether a partial failure reports, in machine-readable form, what
+  committed before the failure (with an atomic scope, the replayed outcome carries it too).
+* **repair** - what the contract offers for repairing a partial outcome: ``none``; ``prose``
+  (the description explains how to repair, with no new operation); or ``cancel_partial`` (a
+  ``cancel_partial(tool, key)`` operation undoes exactly what that key committed,
+  after which the full request can be sent again with the same key). ``cancel_partial`` needs
+  an atomic key scope and a compensation hook.
 
 The runtime reads contracts to decide what is safe (``abh.runtime``); services enforce
 ``key_scope`` (``abh.tools.ToolSpec.execute``); tool descriptions can be generated from them
@@ -50,6 +57,12 @@ class PartialEffects(str, Enum):
     PERSIST = "persist"
 
 
+class Repair(str, Enum):
+    NONE = "none"
+    PROSE = "prose"
+    CANCEL_PARTIAL = "cancel_partial"
+
+
 @dataclass(frozen=True)
 class ExecutionContract:
     tool: str
@@ -63,6 +76,8 @@ class ExecutionContract:
     reconcile: bool                        # lookup by key: "did this request execute?"
     postcondition: bool                    # a checkable condition on visible state after success
     compensation: bool                     # undo of an incomplete attempt, by key
+    partial_report: bool = False           # partial failures report what committed (structured)
+    repair: Repair = Repair.NONE           # repair offered for a partial outcome
 
     @property
     def read_only(self) -> bool:
@@ -81,11 +96,13 @@ class ExecutionContract:
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         d.update(side_effect=self.side_effect.value, consequence=self.consequence.name,
-                 key_scope=self.key_scope.value, partial_effects=self.partial_effects.value)
+                 key_scope=self.key_scope.value, partial_effects=self.partial_effects.value,
+                 repair=self.repair.value)
         return d
 
 
-OVERRIDABLE = {"key_scope": KeyScope, "partial_effects": PartialEffects, "visibility_lag_ms": None}
+OVERRIDABLE = {"key_scope": KeyScope, "partial_effects": PartialEffects, "visibility_lag_ms": None,
+               "partial_report": bool, "repair": Repair}
 
 
 def contract_of(tool, overrides: Optional[Dict[str, Any]] = None) -> ExecutionContract:
@@ -112,7 +129,11 @@ def contract_of(tool, overrides: Optional[Dict[str, Any]] = None) -> ExecutionCo
             continue
         if k == "partial_effects" and c.partial_effects is PartialEffects.IMPOSSIBLE:
             continue
+        if k in ("partial_report", "repair") and not (c.keyed and c.partial_effects is PartialEffects.PERSIST):
+            continue  # only tools that take a key and can commit partly
         c = replace(c, **{k: v})
+    if c.repair is Repair.CANCEL_PARTIAL and not (c.key_scope is KeyScope.ATOMIC and c.compensation):
+        raise ValueError(f"{c.tool}: repair=cancel_partial needs key_scope=atomic and a compensation hook")
     return c
 
 
@@ -148,9 +169,20 @@ def describe_key(c: ExecutionContract) -> Optional[str]:
     base = "Optional client-supplied key."
     if c.key_scope is KeyScope.ATOMIC:
         if c.partial_effects is PartialEffects.PERSIST:
-            return (f"{base} A request repeated with the same key is never executed again: the service returns the "
+            text = (f"{base} A request repeated with the same key is never executed again: the service returns the "
                     "original outcome, including when the original failed partway (the retry then reports what "
-                    "committed). Reuse the key when retrying the same request.")
+                    "committed).")
+            if c.repair is Repair.CANCEL_PARTIAL:
+                return (f"{text} If the request failed partway, repair it this way: call cancel_partial with this "
+                        "tool's name and the same key, which undoes exactly the part that committed; then send the "
+                        "full request again with the same key. Never resend it with a new key, which would repeat "
+                        "the committed part.")
+            if c.repair is Repair.PROSE:
+                return (f"{text} If the service reports that the original request failed partway, part of it has "
+                        "taken effect. Don't send the whole request again, with this key or a new one: first check "
+                        "what was committed, then either cancel that part and send the full request again, or "
+                        "complete only the missing part if the task allows separate requests.")
+            return f"{text} Reuse the key when retrying the same request."
         return (f"{base} A request repeated with the same key is never executed again: the service returns the "
                 "original outcome. Reuse the key when retrying the same request.")
     if c.partial_effects is PartialEffects.PERSIST:
@@ -176,6 +208,8 @@ def mcp_annotations(c: ExecutionContract) -> Dict[str, Any]:
         "lost": [k for k, keep in (("key_scope", not c.keyed), ("partial_effects",
                                                              c.partial_effects is PartialEffects.IMPOSSIBLE),
                                    ("visibility_lag_ms", c.visibility_lag_ms == 0), ("reconcile", not c.reconcile),
-                                   ("postcondition", not c.postcondition), ("compensation", not c.compensation))
+                                   ("postcondition", not c.postcondition), ("compensation", not c.compensation),
+                                   ("partial_report", not c.partial_report),
+                                   ("repair", c.repair is Repair.NONE))
                  if not keep],
     }

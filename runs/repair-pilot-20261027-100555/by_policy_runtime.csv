@@ -1,0 +1,3 @@
+policy,runtime,agent,n,success,harm,failures_exposed,tokens,runtime_retries
+P1[key_description=contract],none,anthropic:claude-haiku-5-5@high,45,0.8888888888888888,0.1111111111111111,1.2444444444444445,26587.577777777777,0.0
+P1[key_description=contract],none,together:glm-5.3-flash@high,45,0.8888888888888888,0.1111111111111111,1.1777777777777778,13744.977777777778,0.0

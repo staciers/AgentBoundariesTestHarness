@@ -7,11 +7,12 @@ reconciliation (lookup-by-client-reference) and compensation.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from .contract import describe_key
-from .semantics import ActionSemantics, READ_ONLY
+from .semantics import ActionSemantics, Consequence, READ_ONLY, SideEffect
 from .world import World
 
 
@@ -119,19 +120,28 @@ class ToolSpec:
         """Service-side execution with server-enforced idempotency keys."""
         key = ctx.idempotency_key if self.semantics.supports_idempotency_key else None
         atomic = key and ctx.contract is not None and ctx.contract.key_scope.value == "atomic"
+        report = ctx.contract is not None and ctx.contract.partial_report
         if key:
             prior = world.get(f"_idem:{self.name}", key, visible=False)
             if prior is not None:
                 if "partial_error" in prior:  # atomic scope: replay the original partial outcome
                     raise PartialFailure(f"A request with this idempotency key already failed partway and was not "
-                                         f"executed again. Original error: {prior['partial_error']}")
+                                         f"executed again. Original error: {prior['partial_error']}"
+                                         + (_committed_text(prior.get("committed", [])) if report else ""))
                 return dict(prior["response"])
         clean = {k: v for k, v in args.items() if k != "idempotency_key"}
+        n_effects = len(world.effects)
         try:
             resp = self.handler(world, clean, ctx)
         except PartialFailure as e:
+            committed = [_effect_summary(x) for x in world.effects[n_effects:]]
             if atomic:  # the key is recorded with the committed part
-                world.put(f"_idem:{self.name}", key, {"partial_error": str(e)})
+                rec = {"partial_error": str(e)}
+                if report or (ctx.contract is not None and ctx.contract.repair.value == "cancel_partial"):
+                    rec.update(committed=committed, args=clean)
+                world.put(f"_idem:{self.name}", key, rec)
+            if report:
+                raise PartialFailure(str(e) + _committed_text(committed), **e.info) from e
             raise
         except ToolError:
             raise
@@ -156,6 +166,49 @@ KEY_DESCRIPTIONS = {
                  "first one completed. If the first request failed partway, part of it may already have taken "
                  "effect; check current state before retrying."),
 }
+
+
+def _effect_summary(e) -> dict:
+    return {"kind": e.kind, **{k: v for k, v in e.data.items() if not str(k).startswith("_")}}
+
+
+def _committed_text(committed: list) -> str:
+    return " Committed before the failure: " + json.dumps(committed, default=str, sort_keys=True)
+
+
+def make_cancel_partial_tool(tools: List["ToolSpec"]) -> "ToolSpec":
+    """``cancel_partial(tool, key)``: the repair operation an execution contract can declare.
+
+    It undoes exactly what a partially failed keyed request committed (via the tool's own
+    compensation hook) and clears the key's record, so the full request can be sent again with
+    the same key. Only requests recorded under an atomic key scope can be cancelled.
+    """
+    by_name = {t.name: t for t in tools}
+
+    def handler(world: World, a: dict, ctx: "InvocationContext") -> dict:
+        name, key = a.get("tool"), a.get("key")
+        tool = by_name.get(name)
+        if tool is None or not key:
+            raise InvalidRequest(f"cancel_partial needs a tool (one of {sorted(by_name)}) and the key it used")
+        rec = world.get(f"_idem:{name}", key, visible=False)
+        if rec is None or "partial_error" not in rec:
+            raise BusinessError(f"No request to {name} with that key failed partway; nothing to cancel")
+        tool.compensate(world, rec.get("args", {}), key)
+        world.delete(f"_idem:{name}", key)
+        return {"cancelled": True, "tool": name, "key": key, "undone": rec.get("committed", [])}
+
+    return ToolSpec(
+        name="cancel_partial",
+        description=("Undo exactly what a request committed before it failed partway, identified by the tool it "
+                     "called and the idempotency key it used. Afterwards the same key can be used to send the full "
+                     "request again."),
+        params={"tool": {"type": "string", "enum": sorted(by_name),
+                         "description": "Name of the tool whose request failed partway."},
+                "key": {"type": "string", "description": "The idempotency key that request used."}},
+        required=["tool", "key"], handler=handler,
+        semantics=ActionSemantics(SideEffect.EXTERNAL, idempotent=True, reversible=False, compensable=False,
+                                  consequence=Consequence.MEDIUM),
+        response_fields=["cancelled"], tags=["contract"])
 
 
 class ToolRegistry:

@@ -22,7 +22,7 @@ from .human import EscalationKind, EscalationRequest, HumanResponse, SimulatedHu
 from .policies import ControlPolicy, GateContext
 from .runtime import Outcome, ReliabilityRuntime, RuntimeMode, agent_view
 from .semantics import Controller, ExecutionState
-from .tools import ToolError, ToolRegistry
+from .tools import ToolError, ToolRegistry, make_cancel_partial_tool
 from .trace import Trace
 from .world import World
 
@@ -90,7 +90,7 @@ class ControlPlane:
         self.world = world
         self.trace = trace
         self.injector = injector
-        self.tools = ToolRegistry(scenario.tools)
+        self.tools = ToolRegistry(scenario.tools + self._contract_tools(scenario.tools))
         self.oracle = scenario.oracle
         self.escalations: List[EscalationRecord] = []
         self.needs_met: set = set()
@@ -101,6 +101,13 @@ class ControlPlane:
         self.outcomes: List[Outcome] = []
 
     # ------------------------------------------------------------ schemas
+    def _contract_tools(self, tools) -> list:
+        """Operations declared by execution contracts (e.g. cancel_partial), offered to the agent."""
+        if getattr(self.runtime, "contracts", None) is None:
+            return []
+        repairable = [t for t in tools if self.runtime.contracts.of(t).repair.value == "cancel_partial"]
+        return [make_cancel_partial_tool(repairable)] if repairable else []
+
     def _contract(self, tool):
         contracts = getattr(self.runtime, "contracts", None)
         return contracts.of(tool) if contracts is not None else contract_of(tool)

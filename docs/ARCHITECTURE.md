@@ -83,6 +83,14 @@ Each tool has an `ExecutionContract` ([`abh/contract.py`](../abh/contract.py)) d
 - whether a request can commit partly
 - how long writes may stay invisible to reads
 - whether the tool offers reconciliation by key, a postcondition, and compensation
+- whether a partial failure reports what committed (`partial_report`)
+- what repair it offers for a partial outcome (`repair`):
+  - `none`
+  - `prose`: guidance in the description only
+  - `cancel_partial`: a generated `cancel_partial(tool, key)` operation that undoes exactly what
+    that key committed and clears its record, so the full request can be sent again with the
+    same key. It needs an atomic key scope and a compensation hook, and is offered to the agent
+    only when declared.
 
 How the contract is used:
 - **Services** enforce the key scope (`ToolSpec.execute`).

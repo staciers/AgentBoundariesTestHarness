@@ -1,0 +1,142 @@
+{
+  "name": "repair",
+  "_comment": "Repair study (Paper 1, Q4 follow-up): under an atomic key scope, do contract-declared repair primitives (a structured partial report and cancel_partial) or repair-aware wording make agent recovery from a partial commit safe? Pre-registered in docs/preregistration/repair.md. Do not change after the run starts.",
+  "scenarios": [
+    "travel/base",
+    "commerce/base"
+  ],
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-opus-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6.1-sol",
+      "effort": "high"
+    },
+    {
+      "type": "openai",
+      "model": "gpt-6-luna",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+      "alias": "deepseek-v4-pro-0813",
+      "effort": "high",
+      "input_price": 1.32,
+      "output_price": 3.96,
+      "cache_read_price": 0.13
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3",
+      "alias": "glm-5.3",
+      "effort": "high",
+      "input_price": 1.4,
+      "output_price": 4.4,
+      "cache_read_price": 0.26
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    }
+  ],
+  "seeds": {
+    "start": 300,
+    "count": 45
+  },
+  "workers": {
+    "anthropic": 8,
+    "openai": 8,
+    "together": 12
+  },
+  "keep_traces": true,
+  "blocks": [
+    {
+      "_block": "main: atomic scope, contract wording, repair none / prose / cancel_partial",
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "key_description": "contract"
+        }
+      ],
+      "contract_overrides": [
+        {
+          "key_scope": "atomic"
+        },
+        {
+          "key_scope": "atomic",
+          "repair": "prose"
+        },
+        {
+          "key_scope": "atomic",
+          "partial_report": true,
+          "repair": "cancel_partial"
+        }
+      ]
+    },
+    {
+      "_block": "no-keys control",
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "expose_keys": false
+        }
+      ]
+    },
+    {
+      "_block": "reference: runtime (P6) with the repair contract",
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P6",
+          "threshold": 0.7
+        }
+      ],
+      "contract_overrides": [
+        {
+          "key_scope": "atomic",
+          "partial_report": true,
+          "repair": "cancel_partial"
+        }
+      ],
+      "seeds": {
+        "start": 300,
+        "count": 15
+      }
+    }
+  ]
+}

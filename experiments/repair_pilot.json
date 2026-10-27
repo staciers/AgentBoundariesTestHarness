@@ -1,0 +1,67 @@
+{
+  "name": "repair-pilot",
+  "_comment": "Pilot for the repair study: five seeds, two models, the three atomic-scope arms (including platform/base under a hidden partial commit, not yet run with LLMs). Checks the repair primitives against LLMs and measures cost. Not analysed.",
+  "scenarios": [
+    "travel/base",
+    "commerce/base",
+    "platform/base"
+  ],
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    }
+  ],
+  "seeds": {
+    "start": 900,
+    "count": 5
+  },
+  "workers": {
+    "anthropic": 8,
+    "openai": 8,
+    "together": 12
+  },
+  "keep_traces": true,
+  "blocks": [
+    {
+      "_block": "main: atomic scope, contract wording, repair none / prose / cancel_partial",
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "key_description": "contract"
+        }
+      ],
+      "contract_overrides": [
+        {
+          "key_scope": "atomic"
+        },
+        {
+          "key_scope": "atomic",
+          "repair": "prose"
+        },
+        {
+          "key_scope": "atomic",
+          "partial_report": true,
+          "repair": "cancel_partial"
+        }
+      ]
+    }
+  ]
+}

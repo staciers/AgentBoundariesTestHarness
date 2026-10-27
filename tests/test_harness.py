@@ -1124,3 +1124,74 @@ class TestContracts(unittest.TestCase):
         self.assertEqual(episode_key(base), episode_key(dataclasses.replace(base, contract=None)))
         self.assertNotEqual(episode_key(base), episode_key(dataclasses.replace(base, contract={"key_scope": "atomic"})))
 
+
+
+class TestContractRepair(unittest.TestCase):
+    REPAIR = {"key_scope": "atomic", "partial_report": True, "repair": "cancel_partial"}
+
+    def setup(self, overrides):
+        from abh.contract import Contracts
+        sc, w, rt, inj = runtime_for("travel/base", "none", [])
+        tool = {t.name: t for t in sc.tools}["book_trip"]
+        return sc, w, tool, Contracts(overrides).of(tool)
+
+    def partial(self, w, tool, c, key="K1"):
+        from abh.tools import InvocationContext, PartialFailure
+        with self.assertRaises(PartialFailure) as cm:
+            tool.execute(w, dict(TRIP, idempotency_key=key), InvocationContext("c1", key, 1, partial=True, contract=c))
+        return str(cm.exception)
+
+    def test_partial_report_lists_committed_part_on_failure_and_replay(self):
+        from abh.tools import InvocationContext, PartialFailure
+        sc, w, tool, c = self.setup(self.REPAIR)
+        first = self.partial(w, tool, c)
+        self.assertIn("Committed before the failure", first)
+        self.assertIn('"reservation": "R0001"', first)
+        with self.assertRaises(PartialFailure) as cm:
+            tool.execute(w, dict(TRIP, idempotency_key="K1"), InvocationContext("c2", "K1", 2, contract=c))
+        self.assertIn("already failed partway", str(cm.exception))
+        self.assertIn('"reservation": "R0001"', str(cm.exception))
+
+    def test_replay_text_unchanged_without_report(self):
+        from abh.tools import InvocationContext, PartialFailure
+        sc, w, tool, c = self.setup({"key_scope": "atomic"})
+        self.assertNotIn("Committed before", self.partial(w, tool, c))
+        with self.assertRaises(PartialFailure) as cm:
+            tool.execute(w, dict(TRIP, idempotency_key="K1"), InvocationContext("c2", "K1", 2, contract=c))
+        self.assertEqual(str(cm.exception), "A request with this idempotency key already failed partway and was not "
+                         "executed again. Original error: Internal error while reserving hotel; trip incomplete")
+
+    def test_cancel_partial_then_same_key_completes_without_duplicates(self):
+        from abh.tools import BusinessError, InvocationContext, make_cancel_partial_tool
+        sc, w, tool, c = self.setup(self.REPAIR)
+        self.partial(w, tool, c)
+        cancel = make_cancel_partial_tool([tool])
+        with self.assertRaises(BusinessError):
+            cancel.execute(w, {"tool": "book_trip", "key": "other"}, InvocationContext("x", None, 1))
+        out = cancel.execute(w, {"tool": "book_trip", "key": "K1"}, InvocationContext("c3", None, 1))
+        self.assertTrue(out["cancelled"])
+        self.assertTrue(out["undone"])
+        resp = tool.execute(w, dict(TRIP, idempotency_key="K1"), InvocationContext("c4", "K1", 2, contract=c))
+        self.assertEqual(resp["status"], "confirmed")
+        self.assertEqual(w.duplicate_effects(), 0)
+        self.assertEqual(len(w.scan("trips", visible=False)), 1)
+
+    def test_contract_validation_and_offering(self):
+        from abh.contract import Contracts, describe_key
+        from abh.controlplane import ControlPlane
+        from abh.policies import make_policy
+        sc, w, tool, _ = self.setup(None)
+        with self.assertRaises(ValueError):
+            Contracts({"repair": "cancel_partial"}).of(tool)  # needs an atomic scope
+        self.assertIn("call cancel_partial", describe_key(Contracts(self.REPAIR).of(tool)))
+        self.assertIn("Don't send the whole request again",
+                      describe_key(Contracts({"key_scope": "atomic", "repair": "prose"}).of(tool)))
+
+        class RT:
+            def __init__(self, overrides):
+                self.contracts = Contracts(overrides)
+        names = lambda o: [t["name"] for t in ControlPlane(sc, make_policy("P1"), RT(o), None, None, None,
+                                                            None).tool_schemas()]
+        self.assertIn("cancel_partial", names(self.REPAIR))
+        self.assertNotIn("cancel_partial", names({"key_scope": "atomic", "repair": "prose"}))
+        self.assertNotIn("cancel_partial", names(None))
