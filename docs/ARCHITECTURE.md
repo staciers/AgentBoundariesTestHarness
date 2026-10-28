@@ -164,6 +164,21 @@ simulated duration. The previous outcome is kept under `pre_rescore`, the file i
 up first, and mismatches go to `rescore_mismatches.json`. Use it whenever the evaluator
 changes. Keep traces for every LLM run so this stays possible.
 
+The replay rebuilds the agent's turns from the trace: calls made in one turn are replayed
+together, and a final reply that the principal answered (`principal_replies`) is replayed as
+that final, followed by the calls recorded after the answer. On 2026-10-28, every analysed
+episode of the ten pre-registered studies (47,219) replayed with no mismatches. Before this,
+episodes with a principal reply didn't replay (1,216 of Stage D's 1,217 mismatches).
+
+## Real services
+
+`ledger_real/base` runs the held-out ledger domain against real infrastructure: Postgres with
+a delayed streaming read replica, an HTTP service and a fault proxy (`services/ledger/`). It
+uses a wall clock (`RealClock`; the runtime's waits call `clock.wait`, which really sleeps
+there and only advances simulated time elsewhere). A scenario can supply `make_clock`,
+`finalize` and `teardown` hooks for this. The design, what is real and what is injected, and
+how to run it are in [REAL_SERVICES.md](REAL_SERVICES.md).
+
 ## Compound faults
 
 A fault condition can be a list of specs. In an experiment spec, write

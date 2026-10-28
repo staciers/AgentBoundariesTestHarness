@@ -1,0 +1,107 @@
+{
+  "name": "real-ledger-pilot",
+  "_comment": "Pilot for the real-services study: the real ledger only, two cheap models, seeds 900-902. Checks the stack, the fault mechanics and cost; not analysed.",
+  "agents": [
+    {
+      "type": "anthropic",
+      "model": "claude-haiku-5-5",
+      "effort": "high"
+    },
+    {
+      "type": "compat",
+      "provider": "together",
+      "model": "zai-org/GLM-5.3-Flash",
+      "alias": "glm-5.3-flash",
+      "effort": "high",
+      "input_price": 0.15,
+      "output_price": 0.5,
+      "cache_read_price": 0.03
+    }
+  ],
+  "human": {
+    "latency_median_s": 90,
+    "latency_sigma": 0.8,
+    "cost_per_hour": 120,
+    "error_rate": 0.03,
+    "fatigue_per_request": 0.01
+  },
+  "principal_replies": 1,
+  "keep_traces": true,
+  "workers": {
+    "anthropic": 8,
+    "openai": 8,
+    "together": 12,
+    "scripted": 4
+  },
+  "blocks": [
+    {
+      "_block": "N: no fault, agent recovers alone (P1, keys offered)",
+      "scenarios": [
+        "ledger_real/base"
+      ],
+      "fault_conditions": [
+        "none"
+      ],
+      "policies": [
+        "P1"
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 3
+      }
+    },
+    {
+      "_block": "HW: hidden write, no keys vs runtime",
+      "scenarios": [
+        "ledger_real/base"
+      ],
+      "fault_conditions": [
+        [
+          "timeout_after_execution",
+          "delayed_visibility"
+        ]
+      ],
+      "policies": [
+        {
+          "name": "P1",
+          "expose_keys": false
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7
+        }
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 3
+      }
+    },
+    {
+      "_block": "PC: hidden partial commit, keys vs no keys vs runtime",
+      "scenarios": [
+        "ledger_real/base"
+      ],
+      "fault_conditions": [
+        [
+          "partial_mutation",
+          "timeout_after_execution"
+        ]
+      ],
+      "policies": [
+        "P1",
+        {
+          "name": "P1",
+          "expose_keys": false
+        },
+        {
+          "name": "P6",
+          "threshold": 0.7
+        }
+      ],
+      "seeds": {
+        "start": 900,
+        "count": 3
+      }
+    }
+  ]
+}

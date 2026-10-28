@@ -1,0 +1,4 @@
+policy,n,autonomy_rate,autonomous_coverage,autonomous_failure_no_harm,autonomous_harmful,autonomous_failure_rate,autonomous_harm_rate,harm
+P1,12,1.0,0.5,0.0,0.5,0.5,0.5,0.5
+P1[expose_keys=False],12,1.0,0.0,0.0,1.0,1.0,1.0,1.0
+P6[threshold=0.7],12,1.0,1.0,0.0,0.0,0.0,0.0,0.0

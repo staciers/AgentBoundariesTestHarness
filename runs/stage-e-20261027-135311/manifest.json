@@ -1,0 +1,79 @@
+{
+  "launches": [
+    {
+      "mode": "new",
+      "started_at": "2026-10-27T13:53:11-07:00",
+      "git_commit": "30078c041eb9580ccc51afa4b86e9e646bd2d319",
+      "git_short": "30078c0",
+      "clean": true,
+      "dirty_paths": [],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 9237,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/stage_e.json"
+      ],
+      "workers": {
+        "anthropic": 8,
+        "openai": 8,
+        "scripted": 4,
+        "together": 12
+      },
+      "episodes_in_spec": 5250,
+      "episodes_to_run": 5250,
+      "request_options": {}
+    },
+    {
+      "mode": "rerun_errors",
+      "started_at": "2026-10-27T14:26:48-07:00",
+      "git_commit": "30078c041eb9580ccc51afa4b86e9e646bd2d319",
+      "git_short": "30078c0",
+      "clean": true,
+      "dirty_paths": [],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 9793,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/stage_e.json",
+        "--resume",
+        "runs/stage-e-20261027-135311",
+        "--rerun-errors"
+      ],
+      "workers": {
+        "openai": 8,
+        "together": 12
+      },
+      "episodes_in_spec": 5250,
+      "episodes_to_run": 6,
+      "request_options": {},
+      "rerun_keys": [
+        "e542c3149c42d28a",
+        "5bfd4ad0307bb69c",
+        "c49f3aac1198facd",
+        "d522d3812343337c",
+        "293a1212bba976c7",
+        "c35762d0db453e15"
+      ]
+    }
+  ]
+}

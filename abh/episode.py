@@ -15,7 +15,7 @@ from .policies import ControlPolicy, make_policy
 from .runtime import ReliabilityRuntime, RuntimeConfig
 from .contract import Contracts, override_label
 from .trace import Trace
-from .world import SimClock, World
+from .world import RealClock, SimClock, World
 
 
 @dataclass
@@ -51,9 +51,19 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
     hcfg = HumanConfig.parse(cfg.human)
     rng = random.Random(cfg.seed * 1_000_003 + zlib.crc32(cfg.scenario.encode()) % 9973)
 
-    clock = SimClock()
+    clock = scenario.make_clock() if scenario.make_clock else SimClock()
     world = World(clock)
     scenario.build_world(world)
+    if isinstance(clock, RealClock):
+        clock.restart()  # the episode starts once its services are ready
+    try:
+        return _run(cfg, scenario, policy, agent, rcfg, hcfg, rng, clock, world, keep_trace, keep_world)
+    finally:
+        if scenario.teardown:
+            scenario.teardown(world)
+
+
+def _run(cfg, scenario, policy, agent, rcfg, hcfg, rng, clock, world, keep_trace, keep_world) -> Dict[str, Any]:
     trace = Trace(clock)
 
     specs: List[FaultSpec] = []
@@ -103,6 +113,8 @@ def run_episode(cfg: EpisodeConfig, keep_trace: bool = True, agent: Optional[Age
             break
         results = [cp.handle(c) for c in t.calls]
     trace.emit("episode_end", "harness", termination=termination, final=final, error=agent_error)
+    if scenario.finalize:
+        scenario.finalize(world)
     res = _evaluate(cfg, scenario, policy, agent, rcfg, world, cp, injector, usage, hcfg, final,
                     termination, agent_error, trace if keep_trace else None)
     if keep_world:  # the evaluator's ground truth, for audit: final state and the full effects ledger

@@ -441,6 +441,59 @@ class TestReplayAndRescore(unittest.TestCase):
             self.assertEqual(stats["mismatch"], 0)
             self.assertTrue(all("end_state_harm" in r for r in load_episodes(path)))
 
+    def assertReplays(self, cfg, orig):
+        from abh.agents.replay import ReplayAgent
+        from abh.rescore import VERIFY, _faults_sig
+        rep = run_episode(cfg, keep_trace=False, agent=ReplayAgent(orig["trace"], label=orig["agent"]))
+        for k in VERIFY + ("outcome", "termination", "final_message", "principal_replies_used"):
+            self.assertEqual(orig[k], rep[k], k)
+        self.assertEqual(_faults_sig(orig["faults_injected"]), _faults_sig(rep["faults_injected"]))
+
+    def test_replay_continues_after_principal_reply(self):
+        from abh.agents.base import AgentTurn
+        from abh.agents.scripted import ScriptedAgent
+
+        class AskFirst(ScriptedAgent):  # stops to ask, then runs its scripted plan once answered
+            def start(self, brief, seed):
+                super().start(brief, seed)
+                self.answered = False
+
+            def act(self, results):
+                if not self.answered:
+                    return AgentTurn(final="Which hotel is Dana's usual one?", usage=self._usage())
+                return super().act(results)
+
+            def user_reply(self, text):
+                self.answered = True
+                return True
+
+        cfg = EpisodeConfig("travel/ambiguous", "P1", "scripted", principal_replies=1, seed=3)
+        orig = run_episode(cfg, keep_trace=True, agent=AskFirst())
+        self.assertEqual(orig["principal_replies_used"], 1)
+        self.assertGreater(orig["agent_tool_calls"], 0)
+        self.assertReplays(cfg, orig)
+
+    def test_replay_keeps_calls_batched_per_turn(self):
+        from abh.agents.base import Agent, AgentTurn, Usage
+
+        class Batcher(Agent):  # several calls per turn until the turn limit
+            label = "fake:batcher"
+
+            def start(self, brief, seed):
+                self.n = 0
+
+            def act(self, results):
+                calls = []
+                for tool in ("search_flights", "search_hotels", "list_reservations"):
+                    self.n += 1
+                    calls.append(ToolCall(f"c{self.n}", tool, {}))
+                return AgentTurn(calls=calls, usage=Usage(latency_ms=700))
+
+        cfg = EpisodeConfig("travel/base", "P1", "scripted", max_turns=4)
+        orig = run_episode(cfg, keep_trace=True, agent=Batcher())
+        self.assertEqual((orig["termination"], orig["agent_tool_calls"]), ("max_turns", 12))
+        self.assertReplays(cfg, orig)
+
 
 class TestDefinitionsAndReport(unittest.TestCase):
     def test_definitions_doc_is_current(self):
@@ -1258,3 +1311,64 @@ class TestStageE(unittest.TestCase):
         self.assertTrue(all(st.valid is None and st.check is None for st in plan))
         self.assertTrue(all(st.on_reject == plan[0].name for st in plan))
         self.assertTrue(any(st.fallback for st in plan))  # declared alternatives are kept
+
+
+class TestRealServices(unittest.TestCase):
+    """The real-services ledger (abh/domains/ledger_real.py). Unit tests need no services; the
+    live test runs only with ABH_LEDGER_LIVE=1 and the stack up (services/ledger/stack.sh up)."""
+
+    def test_simulated_waits_just_advance(self):
+        c = SimClock()
+        c.wait(2500)
+        self.assertEqual(c.now_ms, 2500)
+
+    def test_real_clock_sleeps_only_on_wait(self):
+        import time
+        from abh.world import RealClock
+        c = RealClock()
+        t0 = time.monotonic()
+        c.advance(60_000)  # latency that already happened in real time: adds nothing
+        self.assertLess(time.monotonic() - t0, 0.05)
+        c.wait(120)
+        self.assertGreaterEqual(time.monotonic() - t0, 0.11)
+        self.assertGreaterEqual(c.now_ms, 110)
+
+    def test_injector_tells_the_tool_which_faults_are_active(self):
+        from abh.faults import FaultInjector
+        from abh.tools import InvocationContext, ToolSpec
+        seen = []
+        tool = ToolSpec("t", "", {}, lambda w, a, ctx: seen.append(set(ctx.faults)) or {})
+        inj = FaultInjector([FaultSpec.parse({"type": "partial_mutation", "target": "t"})], {})
+        ctx = InvocationContext("c1")
+        inj.invoke(tool, {}, World(SimClock()), ctx)
+        inj.invoke(tool, {}, World(SimClock()), ctx)
+        self.assertEqual(seen, [{"partial_mutation"}, set()])
+        self.assertEqual(ctx.faults, frozenset())
+
+    def test_real_ledger_is_opt_in(self):
+        self.assertNotIn("ledger_real/base", list_scenarios())
+        from abh.domains.base import is_parameterized
+        self.assertTrue(is_parameterized("ledger_real/base"))
+
+    def test_specs_select_real_scenarios_only_by_exact_name(self):
+        spec = {"agents": [{"type": "scripted"}], "fault_conditions": ["none"], "policies": ["P1"], "seeds": 1}
+        self.assertEqual([c.scenario for c in expand(dict(spec, scenarios=["ledger_real/base"]))],
+                         ["ledger_real/base"])
+        self.assertNotIn("ledger_real/base", {c.scenario for c in expand(dict(spec, scenarios=["ledger*"]))})
+
+    @unittest.skipUnless(os.environ.get("ABH_LEDGER_LIVE") == "1", "needs services/ledger/stack.sh up")
+    def test_live_faults_behave_like_the_simulator(self):
+        from concurrent.futures import ThreadPoolExecutor
+        hw = ["timeout_after_execution", "delayed_visibility"]
+        pc = ["partial_mutation", "timeout_after_execution"]
+        cases = [("P1", "careful", [], "success"), ({"name": "P1", "expose_keys": False}, "naive", hw, "harm"),
+                 ("P6", "naive", hw, "success"), ("P1", "naive", pc, "harm"), ("P6", "naive", pc, "success")]
+
+        def run(case):
+            pol, prof, faults, _ = case
+            fs = [FaultSpec.parse(f).to_dict() for f in faults]
+            return run_episode(EpisodeConfig("ledger_real/base", pol, {"type": "scripted", "profile": prof}, fs,
+                                             "+".join(faults) or "none", None, None, 3), keep_trace=False)["outcome"]
+
+        with ThreadPoolExecutor(len(cases)) as ex:
+            self.assertEqual(list(ex.map(run, cases)), [c[3] for c in cases])

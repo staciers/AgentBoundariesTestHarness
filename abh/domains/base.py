@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from ..authority import Delegation
 from ..faults import FaultType, SemanticFaultDef
 from ..tools import ToolSpec
-from ..world import World
+from ..world import SimClock, World
 
 
 @dataclass
@@ -115,6 +115,11 @@ class Scenario:
     clarification: str = ""
     plan: List[Step] = field(default_factory=list)
     context_notes: str = ""
+    # Scenarios backed by real services (abh.domains.ledger_real): a wall clock, a hook that
+    # brings the world up to date with the services before evaluation, and cleanup.
+    make_clock: Optional[Callable[[], SimClock]] = None
+    finalize: Optional[Callable[[World], None]] = None
+    teardown: Optional[Callable[[World], None]] = None
 
     @property
     def oracle(self) -> Oracle:
@@ -176,6 +181,10 @@ def register(scenario_id: str, parameterized: bool = False):
 def make_scenario(scenario_id: str, seed: Optional[int] = None) -> Scenario:
     """Build a scenario. Parameterized scenarios use ``seed`` to pick the instance (default 0)."""
     _ensure_loaded()
+    if scenario_id.startswith("ledger_real/"):
+        # Real services (Postgres, HTTP): loaded only on request, so scenario sweeps and tests
+        # never need the services running.
+        from . import ledger_real  # noqa: F401
     if scenario_id in _PARAMETERIZED:
         return _REGISTRY[scenario_id](0 if seed is None else seed)
     return _REGISTRY[scenario_id]()
@@ -183,12 +192,16 @@ def make_scenario(scenario_id: str, seed: Optional[int] = None) -> Scenario:
 
 def is_parameterized(scenario_id: str) -> bool:
     _ensure_loaded()
+    if scenario_id.startswith("ledger_real/"):
+        from . import ledger_real  # noqa: F401
     return scenario_id in _PARAMETERIZED
 
 
 def list_scenarios(domain: Optional[str] = None) -> List[str]:
     _ensure_loaded()
-    return sorted(s for s in _REGISTRY if domain is None or s.split("/")[0] == domain)
+    # Real-services scenarios (ledger_real/*) are opt-in: never listed, even once loaded.
+    return sorted(s for s in _REGISTRY if (domain is None or s.split("/")[0] == domain)
+                  and not s.startswith("ledger_real/"))
 
 
 def _ensure_loaded():

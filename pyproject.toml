@@ -15,6 +15,7 @@ anthropic = ["anthropic"]
 openai = ["openai"]
 plots = ["matplotlib"]
 analysis = ["numpy", "scipy", "statsmodels"]
+real-services = ["psycopg[binary]", "httpx"]  # ledger_real (docs/REAL_SERVICES.md)
 
 [project.scripts]
 abh = "abh.cli:main"

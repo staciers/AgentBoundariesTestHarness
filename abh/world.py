@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import copy
 import itertools
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -24,6 +25,35 @@ class SimClock:
 
     def advance(self, ms: float) -> None:
         self.now_ms += int(max(0, ms))
+
+    def wait(self, ms: float) -> None:
+        """A deliberate wait (runtime backoff, polling for visibility). Simulated: time just advances."""
+        self.advance(ms)
+
+
+class RealClock(SimClock):
+    """Wall-clock time, for episodes against real services (``abh.domains.ledger_real``).
+
+    Model and service latency already take real time, so ``advance`` adds nothing; the
+    runtime's deliberate waits really sleep, so its polls race real replication lag.
+    """
+
+    def __init__(self):
+        self.restart()
+
+    def restart(self) -> None:
+        """Start timing from now (after the services are set up for the episode)."""
+        self._t0 = time.monotonic()
+
+    @property
+    def now_ms(self) -> int:
+        return int((time.monotonic() - self._t0) * 1000)
+
+    def advance(self, ms: float) -> None:
+        pass
+
+    def wait(self, ms: float) -> None:
+        time.sleep(max(0.0, ms) / 1000)
 
 
 @dataclass

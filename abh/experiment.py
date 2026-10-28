@@ -47,7 +47,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from .agents.base import make_agent
-from .domains.base import list_scenarios, make_scenario
+from .domains.base import is_parameterized, list_scenarios, make_scenario
 from .episode import EpisodeConfig, fault_label, run_episode
 from .faults import FaultSpec, FaultType, validate_compound
 from .metrics import load_episodes, write_report
@@ -61,6 +61,10 @@ def _scenarios(sel) -> List[str]:
         return all_ids
     out: List[str] = []
     for pat in sel:
+        if pat.startswith("ledger_real/") and is_parameterized(pat):
+            # Real-services scenarios are opt-in: an exact name selects one; globs never do.
+            out.extend([pat] if pat not in out else [])
+            continue
         out.extend(s for s in all_ids if fnmatch.fnmatch(s, pat) and s not in out)
     return out
 

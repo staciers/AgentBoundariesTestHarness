@@ -27,3 +27,7 @@ __pycache__/
 !runs/repair-20261027-101723/
 !runs/stage-e-pilot-20261027-121458/
 !runs/stage-e-pilot-recheck-20261027-122358/
+!runs/stage-e-20261027-135311/
+services/ledger/.run/
+!runs/real-ledger-pilot-20261028-110218/
+!runs/real-ledger-pilot-recheck-20261028-110737/

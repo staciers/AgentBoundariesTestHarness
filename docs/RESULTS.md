@@ -445,6 +445,32 @@ parameterized by seed.
 
 *Not pre-registered. These are hypotheses for future confirmatory work.*
 
+0. **Every main effect except one varies strongly by model**
+   ([heterogeneity.md](heterogeneity/heterogeneity.md), [forest plot](heterogeneity/forest.png),
+   `analysis/heterogeneity.py`). The confirmatory tests pooled models. Per model, on the
+   risk-difference scale:
+   - **Uniform in direction, varying in size** (every model's interval above 0):
+     - the runtime on development domains (Q1): +54 to +99 points, 10/10 models
+     - agents vs the workflow (Q2): +86 to +93
+     - agents vs generic rules (E3a): +15 to +21
+     - P6 vs P1 on human-needed variants (D1): +27 to +55. This is the only effect with low
+       heterogeneity (I² = 17%).
+   - **Concentrated in some models**, with the others at or near 0 in both arms:
+     - the runtime on the held-out ledger (E1): GLM-5.3 and GLM-5.3-Flash +100, DeepSeek
+       V4.1-Flash +97, DeepSeek V4-Pro +67, Haiku +60, but Opus, GPT-6.1-Sol and GPT-6-Luna
+       0 to +3
+     - the authority gate on the ledger (E4): GLM-5.3-Flash +90, GLM-5.3 +10, six models 0
+     - repair primitives (R1): Haiku +46, the GLMs +20 and +22, four models 0 to +3
+     - the keys hazard (C3, G4, OC3): GPT-6-Luna +56, Fable +2, GLM-5.3-Flash −1
+   - **One reversal:** contract-generated wording (K2) *raised* harm for DeepSeek V4-Pro, from
+     10% to 23% (−13 points, interval −24 to −2). Every other model was neutral or helped.
+   - **Which models need a mechanism doesn't follow family or tier, and isn't stable across
+     domains.** GPT-6-Luna was harmed in 75% of development hidden-write episodes but 3% on the
+     ledger. Haiku needed repair primitives; Opus didn't.
+   - **The mechanisms never made a model worse,** apart from that one wording reversal. So the
+     defensible claim is "never worse, and decisive for the models that need it", not a uniform
+     effect size.
+
 1. **Key discipline varies by model family.**
    [open-confirm notes](../runs/open-confirm-20261014-081413/NOTES.md).
    - The closed models attached an idempotency key to the *first* attempt 100% of the time, and
@@ -567,3 +593,5 @@ cd /tmp/prereg && PYTHONPATH=$PWD /path/to/repo/.venv/bin/python analysis/stage_
 
 Episodes with saved traces can also be re-scored under a changed evaluator, with no model calls:
 `python -m abh rescore runs/<dir>` ([how it works](ARCHITECTURE.md#re-scoring-old-runs)).
+Every analysed episode of the ten studies (47,219) replays exactly, including those where the
+agent asked the principal a question.

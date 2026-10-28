@@ -72,6 +72,7 @@ class InvocationContext:
     attempt: int = 1
     partial: bool = False  # set by fault injector: commit only the first part
     contract: Any = None   # the tool's ExecutionContract for this episode (abh.contract)
+    faults: frozenset = frozenset()  # fault types active on this call (for tools backed by real services)
 
 
 Handler = Callable[[World, dict, InvocationContext], dict]

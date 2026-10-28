@@ -269,6 +269,7 @@ class FaultInjector:
         resp: Optional[dict] = None
         error: Optional[ToolError] = None
         ctx.partial = FaultType.PARTIAL_MUTATION in active
+        ctx.faults = frozenset(f.value for f in active)
         world.begin_capture()
         try:
             resp = tool.execute(world, args, ctx)
@@ -278,7 +279,7 @@ class FaultInjector:
         except ToolError as e:
             error = e
         finally:
-            ctx.partial = False
+            ctx.partial, ctx.faults = False, frozenset()
             writes = world.end_capture()
             settle()
 

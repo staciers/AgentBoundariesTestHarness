@@ -1,0 +1,100 @@
+{
+  "launches": [
+    {
+      "mode": "new",
+      "started_at": "2026-10-28T11:02:18-07:00",
+      "git_commit": "9bd9a7dabca9544818e2fbc420497e4953aa77e6",
+      "git_short": "9bd9a7d",
+      "clean": false,
+      "dirty_paths": [
+        "abh/agents/replay.py",
+        "abh/domains/base.py",
+        "abh/episode.py",
+        "abh/experiment.py",
+        "abh/faults.py",
+        "abh/runtime.py",
+        "abh/tools.py",
+        "abh/world.py",
+        "abh/domains/ledger_real.py",
+        "analysis/heterogeneity.py",
+        "analysis/real_services.py",
+        "experiments/real_ledger.json",
+        "experiments/real_ledger_pilot.json"
+      ],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 14802,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/real_ledger_pilot.json"
+      ],
+      "workers": {
+        "anthropic": 8,
+        "together": 12
+      },
+      "episodes_in_spec": 36,
+      "episodes_to_run": 36,
+      "request_options": {}
+    },
+    {
+      "mode": "rerun_errors",
+      "started_at": "2026-10-28T11:04:07-07:00",
+      "git_commit": "9bd9a7dabca9544818e2fbc420497e4953aa77e6",
+      "git_short": "9bd9a7d",
+      "clean": false,
+      "dirty_paths": [
+        "abh/agents/replay.py",
+        "abh/domains/base.py",
+        "abh/episode.py",
+        "abh/experiment.py",
+        "abh/faults.py",
+        "abh/runtime.py",
+        "abh/tools.py",
+        "abh/world.py",
+        "abh/domains/ledger_real.py",
+        "analysis/heterogeneity.py",
+        "analysis/real_services.py",
+        "experiments/real_ledger.json",
+        "experiments/real_ledger_pilot.json"
+      ],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 14943,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/real_ledger_pilot.json",
+        "--resume",
+        "runs/real-ledger-pilot-20261028-110218",
+        "--rerun-errors"
+      ],
+      "workers": {
+        "together": 12
+      },
+      "episodes_in_spec": 36,
+      "episodes_to_run": 2,
+      "request_options": {},
+      "rerun_keys": [
+        "f35cb35db8061d03",
+        "88fbae57d4157331"
+      ]
+    }
+  ]
+}

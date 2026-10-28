@@ -120,14 +120,14 @@ class ReliabilityRuntime:
                 self._fail(out, ExecutionState.NOT_EXECUTED, e, FailureClass.EXECUTION)
                 if retry:
                     out.runtime_actions.append("retry_after_429")
-                    self.world.clock.advance(e.info.get("retry_after_ms", self.cfg.backoff_ms))
+                    self.world.clock.wait(e.info.get("retry_after_ms", self.cfg.backoff_ms))
                     continue
                 return out
             except ServiceUnavailable as e:
                 self._fail(out, ExecutionState.NOT_EXECUTED, e, FailureClass.EXECUTION)
                 if retry:
                     out.runtime_actions.append("blind_retry_5xx")
-                    self.world.clock.advance(self.cfg.backoff_ms * 2 ** (attempt - 1))
+                    self.world.clock.wait(self.cfg.backoff_ms * 2 ** (attempt - 1))
                     continue
                 return out
             except ToolTimeout as e:
@@ -179,12 +179,12 @@ class ReliabilityRuntime:
             except RateLimited as e:
                 last_err = e
                 out.runtime_actions.append("honor_retry_after")
-                self.world.clock.advance(e.info.get("retry_after_ms", self.cfg.backoff_ms))
+                self.world.clock.wait(e.info.get("retry_after_ms", self.cfg.backoff_ms))
                 continue
             except ServiceUnavailable as e:
                 last_err = e
                 out.runtime_actions.append("backoff_retry")
-                self.world.clock.advance(self.cfg.backoff_ms * 2 ** (attempt - 1))
+                self.world.clock.wait(self.cfg.backoff_ms * 2 ** (attempt - 1))
                 continue
             except ToolTimeout as e:
                 last_err = e
@@ -250,7 +250,7 @@ class ReliabilityRuntime:
             if found is not None:
                 out.runtime_actions.append("reconciled_executed")
                 return found
-            self.world.clock.advance(self.cfg.reconcile_wait_ms)
+            self.world.clock.wait(self.cfg.reconcile_wait_ms)
         out.runtime_actions.append("reconcile_not_found")
         return None
 
@@ -265,7 +265,7 @@ class ReliabilityRuntime:
                     out.runtime_actions.append("postcondition_verified")
                     break
                 out.runtime_actions.append("await_visibility")
-                self.world.clock.advance(self.cfg.reconcile_wait_ms)
+                self.world.clock.wait(self.cfg.reconcile_wait_ms)
         return out
 
     @staticmethod
