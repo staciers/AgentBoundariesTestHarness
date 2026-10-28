@@ -1222,6 +1222,22 @@ class TestStageE(unittest.TestCase):
             self.assertTrue(self.ep("ledger/base", "P1", "naive", pc, seed=seed)["harm"])
             self.assertTrue(self.ep("ledger/base", "P6", "naive", pc, seed=seed)["success"])
 
+    def test_ledger_rejects_non_numeric_amounts(self):
+        # Found in the Stage E run: an amount like "3714.45 or 6764.82" crashed the authority gate.
+        from abh.tools import InvalidRequest, InvocationContext
+        sc = make_scenario("ledger/ambiguous", seed=410)
+        w = World(SimClock())
+        sc.build_world(w)
+        for amount in ("3714.45 or 6764.82", "nan", "inf", None, [1]):
+            args = {"invoice_id": "INV-NOPE", "amount": amount}
+            self.assertTrue(sc.delegation.check("send_wire", args, w).permitted)
+        tool = next(t for t in sc.tools if t.name == "send_wire")
+        target = sc.hidden["invoice_id"]
+        for amount in ("3714.45 or 6764.82", "nan", "inf"):
+            with self.assertRaises(InvalidRequest):
+                tool.execute(w, {"invoice_id": target, "amount": amount}, InvocationContext("c1"))
+        self.assertEqual(w.effects, [])
+
     def test_rule_baselines(self):
         # Tuned rules recover every development-domain semantic fault; generic rules can't validate
         # a task-invalid result without task knowledge; the workflow recovers nothing.

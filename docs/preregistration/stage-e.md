@@ -215,4 +215,24 @@ ambiguous: both models succeeded 5/5 under P1, which has no human channel.
 
 ### Deviations
 
-*(None yet.)*
+None. Six errored episodes (4 `max_tokens`, 1 malformed tool arguments, 1 harness error) were
+re-run from `30078c0` under the exclusion rule and all succeeded, so nothing was excluded. The
+harness error is a ledger-domain defect (a non-numeric amount raised `ValueError` instead of a
+tool error); it is recorded in the run's `NOTES.md` and doesn't affect the registered analysis.
+
+### Outcome (recorded after analysis, 2026-10-27)
+
+Run `runs/stage-e-20261027-135311`: 5,250 episodes, $32.64, no exclusions. Every response came
+from the requested model.
+
+- **E1–E6 all confirmed.** E1: no-keys harm 53% vs P6 0% on the held-out domain. E2 and E3b:
+  agents 100% on held-out semantic faults vs workflow 0% and spec-derived rules 67%. E3a: agents
+  98% vs generic rules 79%. E4: authority harm P1 12% vs P6 0%. E5: hybrid 78% vs P6 72% on
+  ambiguity. E6: P5 + runtime 5% vs hybrid 0% harm on authority.
+- **N1 non-inferior** (agents 98% vs tuned rules 100%); **N2 non-inferior** (hybrid harm 3% vs
+  P6 5%).
+- **Decision rule (OSDI condition 2): met.**
+- As expected, E3a and E3b rest on task-invalid results; rules matched agents on the other two
+  faults. Held-out semantic faults were at the ceiling for every model.
+
+Details are in the run's `NOTES.md`.

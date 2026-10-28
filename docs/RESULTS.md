@@ -2,8 +2,8 @@
 
 *Allocating control across runtimes, agents and humans in stateful tool-using AI systems*
 
-**Status:** results through 2026-10-27. Nine pre-registered studies are complete: 42,756
-LLM episodes across 11 models (4 families plus a frontier tier), at $413.30 total API spend,
+**Status:** results through 2026-10-27. Ten pre-registered studies are complete: 47,562
+LLM episodes across 11 models (4 families plus a frontier tier), at $446.19 total API spend,
 including pilots, exploratory runs and re-run episodes. (Deterministic workflow-baseline
 episodes are additional and cost nothing.)
 
@@ -77,6 +77,7 @@ The evidence supports that allocation, and sharpens it in four ways.
 | Stage D | Runtime × policy factorial; P6 components (8 models) | [stage-d](preregistration/stage-d.md) ([`32cb181`](https://github.com/staciers/AgentBoundariesTestHarness/commit/32cb181)) | [spec](../experiments/stage_d.json) | [episodes](../runs/stage-d-20261018-111143/episodes.jsonl) | [stage_d.md](../runs/stage-d-20261018-111143/stage_d.md) · [notes](../runs/stage-d-20261018-111143/NOTES.md) | 10,800 | $86.25 |
 | Contracts | Key scope × key description (Q4); 7 models after one was withdrawn | [contracts](preregistration/contracts.md) ([`45b0e78`](https://github.com/staciers/AgentBoundariesTestHarness/commit/45b0e78)) | [spec](../experiments/contracts.json) | [episodes](../runs/contracts-20261026-140610/episodes.jsonl) | [contracts.md](../runs/contracts-20261026-140610/contracts.md) · [notes](../runs/contracts-20261026-140610/NOTES.md) | 4,480 (3,920 analysed) | $37.40 |
 | Repair | Contract-declared repair of partial commits (Q4 follow-up; 7 models) | [repair](preregistration/repair.md) ([`45f28a6`](https://github.com/staciers/AgentBoundariesTestHarness/commit/45f28a6)) | [spec](../experiments/repair.json) | [episodes](../runs/repair-20261027-101723/episodes.jsonl) | [repair.md](../runs/repair-20261027-101723/repair.md) · [notes](../runs/repair-20261027-101723/NOTES.md) | 2,730 | $23.95 |
+| Stage E | Rule-based baselines, held-out `ledger` workloads, hybrid policy (Q2, Q5; 8 models) | [stage-e](preregistration/stage-e.md) ([`30078c0`](https://github.com/staciers/AgentBoundariesTestHarness/commit/30078c0)) | [spec](../experiments/stage_e.json) | [episodes](../runs/stage-e-20261027-135311/episodes.jsonl) | [stage_e.md](../runs/stage-e-20261027-135311/stage_e.md) · [notes](../runs/stage-e-20261027-135311/NOTES.md) | 5,250 (4,560 LLM) | $32.64 |
 
 **Supporting runs:**
 
@@ -409,6 +410,35 @@ to the contract:
   contract tested).
 - An **agent** that recovers itself is safe through the contract's primitives, provided it keys
   its writes.
+### Stage E: stronger baselines, held-out workloads and the hybrid policy
+
+Confirmatory ([pre-registration](preregistration/stage-e.md),
+[analysis](../runs/stage-e-20261027-135311/stage_e.md),
+[notes](../runs/stage-e-20261027-135311/NOTES.md); 8 models). The held-out `ledger`
+(accounts-payable) domain was written after the system was frozen, and its instances are
+parameterized by seed.
+
+| ID | Claim | Result | Verdict |
+|---|---|---|---|
+| E1 | Held-out, hidden write: the runtime prevents what agents can't | harm, no keys 53% vs P6 0% | **confirmed** |
+| E2 | Held-out, semantic faults: agents beat a workflow | success 100% vs 0% | **confirmed** |
+| E3a | Development: agents beat a domain-independent rule library | 98% vs 79% | **confirmed** |
+| E3b | Held-out: agents beat rules derived from the task spec | 100% vs 67% | **confirmed** |
+| E4 | Held-out: the authority gate prevents harm | harm, P1 12% vs P6 0% | **confirmed** |
+| E5 | Hybrid (P6 + `ask_human`) handles ambiguity better than P6 | 78% vs 72% | **confirmed** |
+| E6 | Hybrid is safer on authority than P5 + runtime | harm 0% vs 5% | **confirmed** |
+| N1 | Agents are within 5 points of hand-tuned rules | 98% vs 100% | **non-inferior** |
+| N2 | Hybrid is no less safe than P6 | harm 3% vs 5% | **non-inferior** |
+
+- **The OSDI decision rule (condition 2) is met.**
+- **Read per fault:** rules matched agents on changed preconditions and unavailable tools; the
+  agents' advantage is on task-invalid results the rules don't anticipate (generic rules 40% on
+  development, 0% held-out; agents 98–100%). Hand-tuned rules remain the ceiling on development
+  domains, at the cost of 3–6 hand-written recovery rules per task.
+- **Held-out semantic faults were at the ceiling** for every model, so they show agents don't
+  degrade on an unseen domain rather than measuring its difficulty.
+- The hybrid's remaining harm (15 episodes) is all unrecognized ambiguity.
+
 ---
 
 ## 5. Exploratory findings
@@ -533,6 +563,7 @@ cd /tmp/prereg && PYTHONPATH=$PWD /path/to/repo/.venv/bin/python analysis/stage_
 | Stage D | `32cb181` | `analysis/stage_d.py runs/stage-d-20261018-111143/` |
 | Contracts | `45b0e78` | `analysis/contracts.py runs/contracts-20261026-140610/` |
 | Repair | `45f28a6` | `analysis/repair.py runs/repair-20261027-101723/` |
+| Stage E | `30078c0` | `analysis/stage_e.py runs/stage-e-20261027-135311/` |
 
 Episodes with saved traces can also be re-scored under a changed evaluator, with no model calls:
 `python -m abh rescore runs/<dir>` ([how it works](ARCHITECTURE.md#re-scoring-old-runs)).
