@@ -97,6 +97,9 @@ Each tool has an `ExecutionContract` ([`abh/contract.py`](../abh/contract.py)) d
 - whether a request can commit partly
 - how long writes may stay invisible to reads
 - whether the tool offers reconciliation by key, a postcondition, and compensation
+- whether it offers `inspect`: a consistent lookup of how far a keyed attempt got (`complete`,
+  `partial` or `absent`), answered from current state once any in-flight attempt with that key
+  has finished. Only the ledger tools have it (`send_wire`, `send_ach`, simulated and real).
 - whether a partial failure reports what committed (`partial_report`)
 - what repair it offers for a partial outcome (`repair`):
   - `none`
@@ -109,6 +112,17 @@ Each tool has an `ExecutionContract` ([`abh/contract.py`](../abh/contract.py)) d
 How the contract is used:
 - **Services** enforce the key scope (`ToolSpec.execute`).
 - **The runtime** reads the contract to decide whether a keyed replay is safe.
+- **The partial-effects fast path** (`RuntimeConfig.inspect_partial`, off by default) uses
+  `inspect` after a timeout instead of polling:
+  - `partial`: compensate at once and retry with the key (completed key scope only)
+  - `absent`: retry at once
+  - `complete`: reconcile against visible state as before, so the agent never reads state
+    older than its own success
+
+  Enable it with a runtime override, `{"mode": "semantic", "inspect_partial": true}`. Results
+  then carry `runtime_inspect: true`. On the real ledger it cut a partial commit's recovery from
+  about 10 s of polling to about 0.2 s, with no harm ([cost model](cost/cost_model.md)). With it
+  off, all ten simulated studies replay unchanged.
 - **Policies** can generate the key's description from it (`key_description: "contract"`).
 - **`mcp_annotations`** lists which fields MCP tool annotations can't express.
 

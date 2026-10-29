@@ -173,6 +173,26 @@ def _send_once(db, p, rail, endpoint, body, key, inject_partial) -> dict:
     return resp
 
 
+def inspect_attempt(db: str, q: dict) -> dict:
+    """How far the payment made with a key got: complete, partial or absent, from the primary.
+
+    Takes the key's lock first, so an attempt with that key that is still executing finishes
+    before the answer is read: the answer can't be overtaken by a commit in flight.
+    """
+    endpoint, key = q.get("endpoint") or "", q.get("key") or ""
+    if endpoint not in ("send_wire", "send_ach") or not key:
+        raise HttpError(400, "invalid_request", "endpoint (send_wire or send_ach) and key are required")
+    with connect(PRIMARY, db) as p:
+        p.execute("select pg_advisory_lock(%s)", (zlib.crc32(f"{endpoint}:{key}".encode()),))
+        try:
+            pays = p.execute("select p.id, i.payment_id as linked from payments p left join invoices i "
+                             "on i.id = p.invoice_id where p.client_ref = %s and p.status = 'sent'", (key,)).fetchall()
+        finally:
+            p.execute("select pg_advisory_unlock_all()")
+    status = "absent" if not pays else "complete" if any(r["linked"] == r["id"] for r in pays) else "partial"
+    return {"key": key, "status": status}
+
+
 def reverse_payment(db: str, payment_id: str) -> dict:
     with connect(PRIMARY, db) as p, p.transaction():
         pay = p.execute("select * from payments where id = %s for update", (payment_id,)).fetchone()
@@ -240,6 +260,8 @@ class Handler(BaseHTTPRequestHandler):
                 out = get_vendor(db, parts[1])
             elif method == "GET" and parts == ["payments"]:
                 out = list_payments(db, q)
+            elif method == "GET" and parts == ["payments", "attempts"]:
+                out = inspect_attempt(db, q)
             elif method == "POST" and len(parts) == 2 and parts[0] == "payments" and parts[1] in ("wire", "ach"):
                 out = send_payment(db, parts[1], body, self.headers.get("Idempotency-Key"),
                                    self.headers.get("X-Inject-Partial") == "1")

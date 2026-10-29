@@ -1,0 +1,3032 @@
+{
+ "seeds": 20,
+ "agent": "scripted:naive",
+ "local_request_ms": {
+  "median": 6.74,
+  "p90": 9.05
+ },
+ "wait_ms": 2500,
+ "summary": [
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "episodes": 20,
+   "harm": 0,
+   "agent_requests": 3.0,
+   "runtime_requests": 0.0,
+   "waits": 0.0,
+   "first_payment_call_ms": 36.5,
+   "episode_ms": 128.0
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "episodes": 20,
+   "harm": 0,
+   "agent_requests": 3.0,
+   "runtime_requests": 1.0,
+   "waits": 0.0,
+   "first_payment_call_ms": 53.5,
+   "episode_ms": 138.0
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "episodes": 20,
+   "harm": 0,
+   "agent_requests": 3.0,
+   "runtime_requests": 1.0,
+   "waits": 0.0,
+   "first_payment_call_ms": 52.0,
+   "episode_ms": 129.5
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "episodes": 20,
+   "harm": 20,
+   "agent_requests": 4.0,
+   "runtime_requests": 0.0,
+   "waits": 0.0,
+   "first_payment_call_ms": 3028.5,
+   "episode_ms": 3163.5
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "episodes": 20,
+   "harm": 0,
+   "agent_requests": 3.0,
+   "runtime_requests": 6.0,
+   "waits": 3.0,
+   "first_payment_call_ms": 10677.5,
+   "episode_ms": 10743.5
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "episodes": 20,
+   "harm": 0,
+   "agent_requests": 3.0,
+   "runtime_requests": 7.0,
+   "waits": 3.0,
+   "first_payment_call_ms": 10693.0,
+   "episode_ms": 10770.5
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "episodes": 20,
+   "harm": 20,
+   "agent_requests": 4.0,
+   "runtime_requests": 0.0,
+   "waits": 0.0,
+   "first_payment_call_ms": 3030.5,
+   "episode_ms": 3159.5
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "episodes": 20,
+   "harm": 0,
+   "agent_requests": 4.0,
+   "runtime_requests": 12.0,
+   "waits": 4.0,
+   "first_payment_call_ms": 13330.0,
+   "episode_ms": 13404.5
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "episodes": 20,
+   "harm": 0,
+   "agent_requests": 4.0,
+   "runtime_requests": 5.0,
+   "waits": 0.0,
+   "first_payment_call_ms": 3168.0,
+   "episode_ms": 3247.5
+  }
+ ],
+ "episodes": [
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 700,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    49
+   ],
+   "waits": 0,
+   "duration_ms": 215
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 701,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    46
+   ],
+   "waits": 0,
+   "duration_ms": 213
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 702,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    40
+   ],
+   "waits": 0,
+   "duration_ms": 212
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 703,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    48
+   ],
+   "waits": 0,
+   "duration_ms": 213
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 704,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    44
+   ],
+   "waits": 0,
+   "duration_ms": 229
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 705,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    46
+   ],
+   "waits": 0,
+   "duration_ms": 212
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 706,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    53
+   ],
+   "waits": 0,
+   "duration_ms": 209
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 707,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    45
+   ],
+   "waits": 0,
+   "duration_ms": 217
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 708,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    33
+   ],
+   "waits": 0,
+   "duration_ms": 95
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 709,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    29
+   ],
+   "waits": 0,
+   "duration_ms": 104
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 710,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    32
+   ],
+   "waits": 0,
+   "duration_ms": 100
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 711,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    36
+   ],
+   "waits": 0,
+   "duration_ms": 100
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 712,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    32
+   ],
+   "waits": 0,
+   "duration_ms": 108
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 713,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    38
+   ],
+   "waits": 0,
+   "duration_ms": 108
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 714,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    37
+   ],
+   "waits": 0,
+   "duration_ms": 102
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 715,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    32
+   ],
+   "waits": 0,
+   "duration_ms": 103
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 716,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    32
+   ],
+   "waits": 0,
+   "duration_ms": 131
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 717,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    30
+   ],
+   "waits": 0,
+   "duration_ms": 110
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 718,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    32
+   ],
+   "waits": 0,
+   "duration_ms": 125
+  },
+  {
+   "condition": "none",
+   "policy": "no runtime",
+   "seed": 719,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    35
+   ],
+   "waits": 0,
+   "duration_ms": 132
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 700,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    62
+   ],
+   "waits": 0,
+   "duration_ms": 147
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 701,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    61
+   ],
+   "waits": 0,
+   "duration_ms": 146
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 702,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    48
+   ],
+   "waits": 0,
+   "duration_ms": 140
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 703,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    54
+   ],
+   "waits": 0,
+   "duration_ms": 141
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 704,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    64
+   ],
+   "waits": 0,
+   "duration_ms": 692
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 705,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    54
+   ],
+   "waits": 0,
+   "duration_ms": 136
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 706,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    46
+   ],
+   "waits": 0,
+   "duration_ms": 127
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 707,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    74
+   ],
+   "waits": 0,
+   "duration_ms": 690
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 708,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    46
+   ],
+   "waits": 0,
+   "duration_ms": 134
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 709,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    71
+   ],
+   "waits": 0,
+   "duration_ms": 688
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 710,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    53
+   ],
+   "waits": 0,
+   "duration_ms": 134
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 711,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    52
+   ],
+   "waits": 0,
+   "duration_ms": 132
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 712,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    46
+   ],
+   "waits": 0,
+   "duration_ms": 124
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 713,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    51
+   ],
+   "waits": 0,
+   "duration_ms": 125
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 714,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    49
+   ],
+   "waits": 0,
+   "duration_ms": 126
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 715,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    45
+   ],
+   "waits": 0,
+   "duration_ms": 123
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 716,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    53
+   ],
+   "waits": 0,
+   "duration_ms": 125
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 717,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 2
+   },
+   "pay_call_ms": [
+    2567
+   ],
+   "waits": 1,
+   "duration_ms": 2624
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 718,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 2
+   },
+   "pay_call_ms": [
+    2564
+   ],
+   "waits": 1,
+   "duration_ms": 2622
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6)",
+   "seed": 719,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 2
+   },
+   "pay_call_ms": [
+    2563
+   ],
+   "waits": 1,
+   "duration_ms": 2621
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 700,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    29
+   ],
+   "waits": 0,
+   "duration_ms": 74
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 701,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    52
+   ],
+   "waits": 0,
+   "duration_ms": 132
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 702,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    54
+   ],
+   "waits": 0,
+   "duration_ms": 131
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 703,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    55
+   ],
+   "waits": 0,
+   "duration_ms": 133
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 704,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    53
+   ],
+   "waits": 0,
+   "duration_ms": 132
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 705,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    61
+   ],
+   "waits": 0,
+   "duration_ms": 135
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 706,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    62
+   ],
+   "waits": 0,
+   "duration_ms": 130
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 707,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    65
+   ],
+   "waits": 0,
+   "duration_ms": 129
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 708,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    42
+   ],
+   "waits": 0,
+   "duration_ms": 123
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 709,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    42
+   ],
+   "waits": 0,
+   "duration_ms": 120
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 710,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    38
+   ],
+   "waits": 0,
+   "duration_ms": 120
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 711,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    39
+   ],
+   "waits": 0,
+   "duration_ms": 118
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 712,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    40
+   ],
+   "waits": 0,
+   "duration_ms": 122
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 713,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    52
+   ],
+   "waits": 0,
+   "duration_ms": 125
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 714,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    52
+   ],
+   "waits": 0,
+   "duration_ms": 125
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 715,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    50
+   ],
+   "waits": 0,
+   "duration_ms": 123
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 716,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    57
+   ],
+   "waits": 0,
+   "duration_ms": 153
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 717,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    58
+   ],
+   "waits": 0,
+   "duration_ms": 152
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 718,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    50
+   ],
+   "waits": 0,
+   "duration_ms": 146
+  },
+  {
+   "condition": "none",
+   "policy": "runtime (P6) + fast path",
+   "seed": 719,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 1
+   },
+   "pay_call_ms": [
+    51
+   ],
+   "waits": 0,
+   "duration_ms": 150
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 700,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3017,
+    37
+   ],
+   "waits": 0,
+   "duration_ms": 3149
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 701,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3020,
+    51
+   ],
+   "waits": 0,
+   "duration_ms": 3150
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 702,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3022,
+    46
+   ],
+   "waits": 0,
+   "duration_ms": 3144
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 703,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3022,
+    45
+   ],
+   "waits": 0,
+   "duration_ms": 3142
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 704,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3041,
+    70
+   ],
+   "waits": 0,
+   "duration_ms": 3182
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 705,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3039,
+    67
+   ],
+   "waits": 0,
+   "duration_ms": 3178
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 706,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3041,
+    65
+   ],
+   "waits": 0,
+   "duration_ms": 3177
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 707,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3039,
+    69
+   ],
+   "waits": 0,
+   "duration_ms": 3179
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 708,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3020,
+    45
+   ],
+   "waits": 0,
+   "duration_ms": 3119
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 709,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3022,
+    59
+   ],
+   "waits": 0,
+   "duration_ms": 3148
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 710,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3023,
+    55
+   ],
+   "waits": 0,
+   "duration_ms": 3147
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 711,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3020,
+    55
+   ],
+   "waits": 0,
+   "duration_ms": 3145
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 712,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3032,
+    48
+   ],
+   "waits": 0,
+   "duration_ms": 3170
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 713,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3029,
+    58
+   ],
+   "waits": 0,
+   "duration_ms": 3171
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 714,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3030,
+    52
+   ],
+   "waits": 0,
+   "duration_ms": 3166
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 715,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3030,
+    56
+   ],
+   "waits": 0,
+   "duration_ms": 3161
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 716,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3016,
+    39
+   ],
+   "waits": 0,
+   "duration_ms": 3092
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 717,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3029,
+    70
+   ],
+   "waits": 0,
+   "duration_ms": 3176
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 718,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3030,
+    72
+   ],
+   "waits": 0,
+   "duration_ms": 3179
+  },
+  {
+   "condition": "hidden write",
+   "policy": "no runtime",
+   "seed": 719,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3028,
+    71
+   ],
+   "waits": 0,
+   "duration_ms": 3181
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 700,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10679
+   ],
+   "waits": 3,
+   "duration_ms": 10742
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 701,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10676
+   ],
+   "waits": 3,
+   "duration_ms": 10742
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 702,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10680
+   ],
+   "waits": 3,
+   "duration_ms": 10746
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 703,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10681
+   ],
+   "waits": 3,
+   "duration_ms": 10745
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 704,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10612
+   ],
+   "waits": 3,
+   "duration_ms": 10668
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 705,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10649
+   ],
+   "waits": 3,
+   "duration_ms": 10709
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 706,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10651
+   ],
+   "waits": 3,
+   "duration_ms": 10709
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 707,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10646
+   ],
+   "waits": 3,
+   "duration_ms": 10706
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 708,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10678
+   ],
+   "waits": 3,
+   "duration_ms": 10758
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 709,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10682
+   ],
+   "waits": 3,
+   "duration_ms": 10765
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 710,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10677
+   ],
+   "waits": 3,
+   "duration_ms": 10761
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 711,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10684
+   ],
+   "waits": 3,
+   "duration_ms": 10769
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 712,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10639
+   ],
+   "waits": 3,
+   "duration_ms": 10694
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 713,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10661
+   ],
+   "waits": 3,
+   "duration_ms": 10727
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 714,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10662
+   ],
+   "waits": 3,
+   "duration_ms": 10728
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 715,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10661
+   ],
+   "waits": 3,
+   "duration_ms": 10729
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 716,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10685
+   ],
+   "waits": 3,
+   "duration_ms": 10760
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 717,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10689
+   ],
+   "waits": 3,
+   "duration_ms": 10756
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 718,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10684
+   ],
+   "waits": 3,
+   "duration_ms": 10752
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6)",
+   "seed": 719,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 6
+   },
+   "pay_call_ms": [
+    10687
+   ],
+   "waits": 3,
+   "duration_ms": 10756
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 700,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10634
+   ],
+   "waits": 3,
+   "duration_ms": 10693
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 701,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10668
+   ],
+   "waits": 3,
+   "duration_ms": 10737
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 702,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10670
+   ],
+   "waits": 3,
+   "duration_ms": 10737
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 703,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10672
+   ],
+   "waits": 3,
+   "duration_ms": 10735
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 704,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10701
+   ],
+   "waits": 3,
+   "duration_ms": 10775
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 705,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10694
+   ],
+   "waits": 3,
+   "duration_ms": 10771
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 706,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10700
+   ],
+   "waits": 3,
+   "duration_ms": 10773
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 707,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10699
+   ],
+   "waits": 3,
+   "duration_ms": 10770
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 708,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10626
+   ],
+   "waits": 3,
+   "duration_ms": 10690
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 709,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10661
+   ],
+   "waits": 3,
+   "duration_ms": 10730
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 710,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10662
+   ],
+   "waits": 3,
+   "duration_ms": 10725
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 711,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10663
+   ],
+   "waits": 3,
+   "duration_ms": 10725
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 712,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10700
+   ],
+   "waits": 3,
+   "duration_ms": 10791
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 713,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10703
+   ],
+   "waits": 3,
+   "duration_ms": 10795
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 714,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10701
+   ],
+   "waits": 3,
+   "duration_ms": 10793
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 715,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10692
+   ],
+   "waits": 3,
+   "duration_ms": 10788
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 716,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10613
+   ],
+   "waits": 3,
+   "duration_ms": 10682
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 717,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10698
+   ],
+   "waits": 3,
+   "duration_ms": 10774
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 718,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10700
+   ],
+   "waits": 3,
+   "duration_ms": 10771
+  },
+  {
+   "condition": "hidden write",
+   "policy": "runtime (P6) + fast path",
+   "seed": 719,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 3,
+    "runtime": 7
+   },
+   "pay_call_ms": [
+    10697
+   ],
+   "waits": 3,
+   "duration_ms": 10773
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 700,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3030,
+    45
+   ],
+   "waits": 0,
+   "duration_ms": 3154
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 701,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3034,
+    40
+   ],
+   "waits": 0,
+   "duration_ms": 3159
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 702,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3030,
+    46
+   ],
+   "waits": 0,
+   "duration_ms": 3161
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 703,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3031,
+    47
+   ],
+   "waits": 0,
+   "duration_ms": 3163
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 704,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3031,
+    37
+   ],
+   "waits": 0,
+   "duration_ms": 3130
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 705,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3024,
+    56
+   ],
+   "waits": 0,
+   "duration_ms": 3141
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 706,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3024,
+    61
+   ],
+   "waits": 0,
+   "duration_ms": 3145
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 707,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3025,
+    55
+   ],
+   "waits": 0,
+   "duration_ms": 3141
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 708,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3032,
+    49
+   ],
+   "waits": 0,
+   "duration_ms": 3177
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 709,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3034,
+    53
+   ],
+   "waits": 0,
+   "duration_ms": 3177
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 710,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3030,
+    59
+   ],
+   "waits": 0,
+   "duration_ms": 3183
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 711,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3028,
+    53
+   ],
+   "waits": 0,
+   "duration_ms": 3183
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 712,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3014,
+    33
+   ],
+   "waits": 0,
+   "duration_ms": 3110
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 713,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3036,
+    62
+   ],
+   "waits": 0,
+   "duration_ms": 3175
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 714,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3035,
+    61
+   ],
+   "waits": 0,
+   "duration_ms": 3175
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 715,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3035,
+    63
+   ],
+   "waits": 0,
+   "duration_ms": 3178
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 716,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3031,
+    65
+   ],
+   "waits": 0,
+   "duration_ms": 3159
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 717,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3032,
+    64
+   ],
+   "waits": 0,
+   "duration_ms": 3153
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 718,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3030,
+    66
+   ],
+   "waits": 0,
+   "duration_ms": 3155
+  },
+  {
+   "condition": "partial commit",
+   "policy": "no runtime",
+   "seed": 719,
+   "outcome": "harm",
+   "harm": true,
+   "requests": {
+    "agent": 4,
+    "runtime": 0
+   },
+   "pay_call_ms": [
+    3028,
+    65
+   ],
+   "waits": 0,
+   "duration_ms": 3160
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 700,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13255
+   ],
+   "waits": 4,
+   "duration_ms": 13321
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 701,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13323
+   ],
+   "waits": 4,
+   "duration_ms": 13394
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 702,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13318
+   ],
+   "waits": 4,
+   "duration_ms": 13395
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 703,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13320
+   ],
+   "waits": 4,
+   "duration_ms": 13400
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 704,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13370
+   ],
+   "waits": 4,
+   "duration_ms": 13437
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 705,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13365
+   ],
+   "waits": 4,
+   "duration_ms": 13435
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 706,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13363
+   ],
+   "waits": 4,
+   "duration_ms": 13438
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 707,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13361
+   ],
+   "waits": 4,
+   "duration_ms": 13437
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 708,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13259
+   ],
+   "waits": 4,
+   "duration_ms": 13325
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 709,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13351
+   ],
+   "waits": 4,
+   "duration_ms": 13416
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 710,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13348
+   ],
+   "waits": 4,
+   "duration_ms": 13411
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 711,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13346
+   ],
+   "waits": 4,
+   "duration_ms": 13413
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 712,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13312
+   ],
+   "waits": 4,
+   "duration_ms": 13393
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 713,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13314
+   ],
+   "waits": 4,
+   "duration_ms": 13397
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 714,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13310
+   ],
+   "waits": 4,
+   "duration_ms": 13391
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 715,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13315
+   ],
+   "waits": 4,
+   "duration_ms": 13393
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 716,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13253
+   ],
+   "waits": 4,
+   "duration_ms": 13323
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 717,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13337
+   ],
+   "waits": 4,
+   "duration_ms": 13413
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 718,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13343
+   ],
+   "waits": 4,
+   "duration_ms": 13415
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6)",
+   "seed": 719,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 12
+   },
+   "pay_call_ms": [
+    13338
+   ],
+   "waits": 4,
+   "duration_ms": 13409
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 700,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3173
+   ],
+   "waits": 0,
+   "duration_ms": 3250
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 701,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3160
+   ],
+   "waits": 0,
+   "duration_ms": 3237
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 702,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3167
+   ],
+   "waits": 0,
+   "duration_ms": 3243
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 703,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3164
+   ],
+   "waits": 0,
+   "duration_ms": 3246
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 704,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3155
+   ],
+   "waits": 0,
+   "duration_ms": 3242
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 705,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3171
+   ],
+   "waits": 0,
+   "duration_ms": 3260
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 706,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3157
+   ],
+   "waits": 0,
+   "duration_ms": 3243
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 707,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3175
+   ],
+   "waits": 0,
+   "duration_ms": 3258
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 708,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3077
+   ],
+   "waits": 0,
+   "duration_ms": 3136
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 709,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3160
+   ],
+   "waits": 0,
+   "duration_ms": 3231
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 710,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3163
+   ],
+   "waits": 0,
+   "duration_ms": 3227
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 711,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3161
+   ],
+   "waits": 0,
+   "duration_ms": 3226
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 712,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3173
+   ],
+   "waits": 0,
+   "duration_ms": 3276
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 713,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3177
+   ],
+   "waits": 0,
+   "duration_ms": 3278
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 714,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3169
+   ],
+   "waits": 0,
+   "duration_ms": 3270
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 715,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3171
+   ],
+   "waits": 0,
+   "duration_ms": 3276
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 716,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3101
+   ],
+   "waits": 0,
+   "duration_ms": 3163
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 717,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3173
+   ],
+   "waits": 0,
+   "duration_ms": 3250
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 718,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3175
+   ],
+   "waits": 0,
+   "duration_ms": 3249
+  },
+  {
+   "condition": "partial commit",
+   "policy": "runtime (P6) + fast path",
+   "seed": 719,
+   "outcome": "success",
+   "harm": false,
+   "requests": {
+    "agent": 4,
+    "runtime": 5
+   },
+   "pay_call_ms": [
+    3175
+   ],
+   "waits": 0,
+   "duration_ms": 3251
+  }
+ ]
+}

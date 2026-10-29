@@ -174,6 +174,16 @@ def _tools() -> List[ToolSpec]:
                 return render(p)
         return None
 
+    def inspect(w: World, a: dict, key: str):
+        # How far the payment made with this key got, from current state (calls are synchronous
+        # here, so no attempt is still in flight): sent and recorded, sent only, or nothing.
+        pays = w.scan("payments", visible=False, where=lambda p: p.get("client_ref") == key and p["status"] == "sent")
+        if not pays:
+            return "absent"
+        linked = any((w.get("invoices", p["invoice_id"], visible=False) or {}).get("payment_id") == p["id"]
+                     for p in pays)
+        return "complete" if linked else "partial"
+
     return [
         ToolSpec("list_invoices", "List invoices, optionally for one vendor (by vendor name).",
                  {"vendor": {"type": "string"}}, _list_invoices, [], response_fields=["invoices"]),
@@ -182,11 +192,11 @@ def _tools() -> List[ToolSpec]:
         ToolSpec("send_wire", "Pay an approved invoice in full by wire from the operating account, and mark it paid.",
                  pay_params, _send("wire"), ["invoice_id", "amount"], semantics=PAY, latency_ms=1800,
                  response_fields=["payment_id", "status"], postcondition=_paid_visible, reconcile=reconcile,
-                 compensate=_compensate),
+                 compensate=_compensate, inspect=inspect),
         ToolSpec("send_ach", "Pay an approved invoice in full by ACH from the operating account, and mark it paid.",
                  pay_params, _send("ach"), ["invoice_id", "amount"], semantics=PAY, latency_ms=1800,
                  response_fields=["payment_id", "status"], postcondition=_paid_visible, reconcile=reconcile,
-                 compensate=_compensate),
+                 compensate=_compensate, inspect=inspect),
         ToolSpec("list_payments", "List payments sent from the operating account.", {}, _list_payments, [],
                  response_fields=["payments"]),
         ToolSpec("reverse_payment", "Reverse (claw back) a payment.", {"payment_id": {"type": "string"}},

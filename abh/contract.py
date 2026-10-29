@@ -19,6 +19,10 @@ An ``ExecutionContract`` declares it:
   read-your-writes; None = no bound promised).
 * **reconcile / postcondition / compensation** - whether the tool offers a lookup by key, a
   checkable postcondition, and an undo for an incomplete attempt.
+* **inspect** - whether the tool offers a consistent lookup of how far a keyed attempt got
+  (``complete``, ``partial`` or ``absent``), answered from current state once any in-flight
+  attempt with that key has finished. With it, a runtime can resolve a timeout at once instead
+  of polling visible state (``RuntimeConfig.inspect_partial``).
 * **partial_report** - whether a partial failure reports, in machine-readable form, what
   committed before the failure (with an atomic scope, the replayed outcome carries it too).
 * **repair** - what the contract offers for repairing a partial outcome: ``none``; ``prose``
@@ -78,6 +82,7 @@ class ExecutionContract:
     compensation: bool                     # undo of an incomplete attempt, by key
     partial_report: bool = False           # partial failures report what committed (structured)
     repair: Repair = Repair.NONE           # repair offered for a partial outcome
+    inspect: bool = False                  # consistent lookup of a keyed attempt's progress
 
     @property
     def read_only(self) -> bool:
@@ -119,7 +124,8 @@ def contract_of(tool, overrides: Optional[Dict[str, Any]] = None) -> ExecutionCo
         partial_effects=PartialEffects.PERSIST if sem.multipart else PartialEffects.IMPOSSIBLE,
         visibility_lag_ms=None if not sem.read_only else 0,
         reconcile=tool.reconcile is not None, postcondition=tool.postcondition is not None,
-        compensation=tool.compensate is not None and sem.compensable)
+        compensation=tool.compensate is not None and sem.compensable,
+        inspect=getattr(tool, "inspect", None) is not None)
     for k, v in (overrides or {}).items():
         if k not in OVERRIDABLE:
             raise ValueError(f"contract field {k!r} can't be overridden; allowed: {sorted(OVERRIDABLE)}")

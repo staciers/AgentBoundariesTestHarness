@@ -29,6 +29,7 @@ Tier B (not built yet).
 | State | dicts in `World` | Postgres, one database per episode |
 | A payment | two writes to the world | two Postgres transactions: debit and record the payment, then mark the invoice paid |
 | Partial commit | `ctx.partial` skips the second write | the service fails between its two transactions (told to by the proxy) |
+| Inspecting an attempt | `inspect` reads ground truth | `GET /payments/attempts`: takes the key's lock (waiting for any attempt in flight), then reads the primary |
 | Idempotency key | a world table | a row in `idempotency_keys`, written in the invoice transaction (completed scope); same-key requests serialized by an advisory lock |
 | Visibility lag | per-write, only under the `delayed_visibility` fault | reads go through a streaming replica with no apply delay (1.6 ms median lag); from the call carrying `delayed_visibility` on, through a second replica that applies WAL 9 s after commit |
 | Timeout | the injector raises `ToolTimeout` | the proxy withholds the response and holds the connection for 6 s, so the client's 3 s read timeout fires |

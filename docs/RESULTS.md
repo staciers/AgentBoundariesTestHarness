@@ -2,8 +2,8 @@
 
 *Allocating control across runtimes, agents and humans in stateful tool-using AI systems*
 
-**Status:** results through 2026-10-27. Ten pre-registered studies are complete: 47,562
-LLM episodes across 11 models (4 families plus a frontier tier), at $446.19 total API spend,
+**Status:** results through 2026-10-27. Eleven pre-registered studies are complete: 50,162
+LLM episodes across 11 models (4 families plus a frontier tier), at $461.34 total API spend,
 including pilots, exploratory runs and re-run episodes. (Deterministic workflow-baseline
 episodes are additional and cost nothing.)
 
@@ -78,6 +78,7 @@ The evidence supports that allocation, and sharpens it in four ways.
 | Contracts | Key scope × key description (Q4); 7 models after one was withdrawn | [contracts](preregistration/contracts.md) ([`45b0e78`](https://github.com/staciers/AgentBoundariesTestHarness/commit/45b0e78)) | [spec](../experiments/contracts.json) | [episodes](../runs/contracts-20261026-140610/episodes.jsonl) | [contracts.md](../runs/contracts-20261026-140610/contracts.md) · [notes](../runs/contracts-20261026-140610/NOTES.md) | 4,480 (3,920 analysed) | $37.40 |
 | Repair | Contract-declared repair of partial commits (Q4 follow-up; 7 models) | [repair](preregistration/repair.md) ([`45f28a6`](https://github.com/staciers/AgentBoundariesTestHarness/commit/45f28a6)) | [spec](../experiments/repair.json) | [episodes](../runs/repair-20261027-101723/episodes.jsonl) | [repair.md](../runs/repair-20261027-101723/repair.md) · [notes](../runs/repair-20261027-101723/NOTES.md) | 2,730 | $23.95 |
 | Stage E | Rule-based baselines, held-out `ledger` workloads, hybrid policy (Q2, Q5; 8 models) | [stage-e](preregistration/stage-e.md) ([`30078c0`](https://github.com/staciers/AgentBoundariesTestHarness/commit/30078c0)) | [spec](../experiments/stage_e.json) | [episodes](../runs/stage-e-20261027-135311/episodes.jsonl) | [stage_e.md](../runs/stage-e-20261027-135311/stage_e.md) · [notes](../runs/stage-e-20261027-135311/NOTES.md) | 5,250 (4,560 LLM) | $32.64 |
+| Real services | Q1 and the keys hazard on Postgres with a streaming replica, side by side with the simulator (6 models) | [real-services](preregistration/real-services.md) ([`3bb3250`](https://github.com/staciers/AgentBoundariesTestHarness/commit/3bb3250)) | [spec](../experiments/real_ledger.json) | [episodes](../runs/real-ledger-20261028-111807/episodes.jsonl) | [real_services.md](../runs/real-ledger-20261028-111807/real_services.md) · [notes](../runs/real-ledger-20261028-111807/NOTES.md) | 2,520 | $15.09 |
 
 **Supporting runs:**
 
@@ -292,6 +293,14 @@ runtime.**
 
 ### H6: handling failures below the model saves tokens, calls and latency
 
+*Cost model (exploratory, 2026-10-28;* [cost_model.md](cost/cost_model.md)*):* on the real
+ledger, the runtime adds one read per payment with no fault (one RTT). Under a fault it adds
+6–12 requests and 7.5–10 s of polling. With LLM agents it cut model calls 7.5 → 3.6 under a
+hidden write (tokens −51%, similar wall time) and 5.9 → 3.6 under a partial commit (tokens −28%,
+6 s slower, almost all polling). The partial-effects fast path (`inspect_partial`, added
+afterwards) removes that polling: a scripted partial commit recovers in 3.2 s instead of 13.3 s,
+with no harm.
+
 On single execution faults, the semantic runtime **cut model calls by about 20%** for every
 model (closed: 5.0–5.5 → 4.05–4.41 calls per episode; open: 5.0–5.25 → 4.0–4.26), and
 reduced failures exposed to the agent from about 0.8 per episode to 0–0.13. Sources:
@@ -439,6 +448,43 @@ parameterized by seed.
   degrade on an unseen domain rather than measuring its difficulty.
 - The hybrid's remaining harm (15 episodes) is all unrecognized ambiguity.
 
+### Real services: the ledger on Postgres
+
+Confirmatory ([pre-registration](preregistration/real-services.md),
+[analysis](../runs/real-ledger-20261028-111807/real_services.md),
+[notes](../runs/real-ledger-20261028-111807/NOTES.md); 6 models; [system](REAL_SERVICES.md)).
+The ledger ran on Postgres:
+- real transactions, and a real two-transaction partial commit
+- idempotency keys as database rows
+- reads through streaming replicas, so lag is real replication lag
+- client-side timeouts and wall-clock time
+
+It ran side by side with the simulated ledger, on the same models, seeds and arms.
+
+| ID | Claim (real services) | Result | Verdict |
+|---|---|---|---|
+| T1 | The runtime prevents hidden-write harm | harm 69% without keys vs 0% | **confirmed** |
+| T2 | The runtime prevents partial-commit harm | 27% with keys vs 0% | **confirmed** |
+| T3 | The keys hazard appears | 27% with keys vs 19% without | **confirmed** |
+| N1 | The runtime is as safe as in the simulator | 0/360 vs 0/360 | **non-inferior** |
+
+- **Decision rule met:** Q1 holds on real services.
+- **The simulator matched real services in four of five agent-only arms** (TOST, ±10 points),
+  including both partial-commit arms (27% vs 27%, 19% vs 18%).
+- **It underestimated hidden-write harm without keys** (46% vs 69%). *Exploratory:* the
+  simulated payment's 1.8 s latency is charged before the call executes. That shortens the
+  window in which a retry can duplicate the hidden write from 6 s to about 4.2 s. Every retry
+  4.2–6 s after the timeout was harmless in the simulator (0/39) and harmful on real services
+  (36/36). Opus went from 0% to 50%, and GPT-6-Luna from 13% to 67%, with no change in what
+  they did.
+- **So agent-side recovery is a timing race, and per-model rates near the boundary depend on
+  service latency.** The runtime's guarantee doesn't.
+- *Exploratory sensitivity curve* ([latency_sensitivity.md](latency/latency_sensitivity.md)):
+  real-stack retry timing predicts every real outcome (180/180). Evaluated at the simulator's
+  4.2 s window, it predicts 49% harm against the simulator's observed 46%. Across windows of
+  1–8 s, pooled harm without a runtime rises from 8% to at least 80%, while the runtime stays
+  at 0%.
+
 ---
 
 ## 5. Exploratory findings
@@ -467,6 +513,9 @@ parameterized by seed.
    - **Which models need a mechanism doesn't follow family or tier, and isn't stable across
      domains.** GPT-6-Luna was harmed in 75% of development hidden-write episodes but 3% on the
      ledger. Haiku needed repair primitives; Opus didn't.
+     Part of this is timing, not the model: on real services (Postgres), GPT-6-Luna's ledger
+     harm was 67% and Opus's 50%, because the simulator's service latency had given them extra
+     time ([real-services notes](../runs/real-ledger-20261028-111807/NOTES.md)).
    - **The mechanisms never made a model worse,** apart from that one wording reversal. So the
      defensible claim is "never worse, and decisive for the models that need it", not a uniform
      effect size.
@@ -590,6 +639,7 @@ cd /tmp/prereg && PYTHONPATH=$PWD /path/to/repo/.venv/bin/python analysis/stage_
 | Contracts | `45b0e78` | `analysis/contracts.py runs/contracts-20261026-140610/` |
 | Repair | `45f28a6` | `analysis/repair.py runs/repair-20261027-101723/` |
 | Stage E | `30078c0` | `analysis/stage_e.py runs/stage-e-20261027-135311/` |
+| Real services | `3bb3250` | `analysis/real_services.py runs/real-ledger-20261028-111807/` |
 
 Episodes with saved traces can also be re-scored under a changed evaluator, with no model calls:
 `python -m abh rescore runs/<dir>` ([how it works](ARCHITECTURE.md#re-scoring-old-runs)).

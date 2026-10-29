@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-10-28T18:18:01Z",
+  "git_commit": "3bb3250b5e1d65e0c0b25a5c1cdf473c2bf2583c",
+  "git_clean": true,
+  "postgres_image": "postgres@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c",
+  "postgres_version": "16.15 (Debian 16.15-1.pgdg13+2)",
+  "replica_apply_delay": "9s",
+  "fast_replica_apply_delay": "0",
+  "proxy_hold_s": 6,
+  "client_timeout_s": 3,
+  "service_port": 8701,
+  "proxy_port": 8700,
+  "proxy_log": "services/ledger/.run/proxy-20261028-111801-15903.jsonl"
+}

@@ -163,6 +163,15 @@ def _remote_tools():
             return False
         return inv.get("payment_id") == resp.get("payment_id")
 
+    def inspect(tool: str):
+        def run(w: World, a: dict, key: str):
+            # The service waits for any in-flight attempt with this key, then reads the primary.
+            try:
+                return _call(w, "GET", "/payments/attempts", params={"endpoint": tool, "key": key})["status"]
+            except ToolError:
+                return None
+        return run
+
     def compensate(w: World, a: dict, key: str) -> None:
         # Undo incomplete payments made with this key, reading current state (the primary).
         try:
@@ -179,6 +188,8 @@ def _remote_tools():
                            t.latency_ms, t.response_fields, tags=t.tags)
         if t.reconcile:
             r.reconcile, r.postcondition, r.compensate = reconcile, postcondition, compensate
+        if t.inspect:
+            r.inspect = inspect(t.name)
         out.append(r)
     return out
 

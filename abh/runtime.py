@@ -41,6 +41,9 @@ class RuntimeConfig:
     reconcile_wait_ms: int = 2500
     verify_postconditions: bool = True
     compensate_partial: bool = True
+    # Fast path: after a timeout on a keyed write whose contract offers ``inspect``, ask how far
+    # the attempt got instead of polling. Off by default, so registered studies are unchanged.
+    inspect_partial: bool = False
 
     @classmethod
     def parse(cls, d) -> "RuntimeConfig":
@@ -191,6 +194,8 @@ class ReliabilityRuntime:
                 if sem.read_only:
                     out.runtime_actions.append("retry_read")
                     continue
+                if self.cfg.inspect_partial and c.inspect and key and self._inspect_fast(tool, args, key, c, out):
+                    continue
                 found = self._reconcile(tool, args, key, out)
                 if found is not None:
                     return self._success(tool, args, found, out)
@@ -240,6 +245,26 @@ class ReliabilityRuntime:
             return self._fail(out, ExecutionState.NOT_EXECUTED, last_err, FailureClass.SEMANTIC)
         state = (ExecutionState.EXECUTION_UNKNOWN if not sem.read_only else ExecutionState.NOT_EXECUTED)
         return self._fail(out, state, last_err or ToolError("retries exhausted"), FailureClass.EXECUTION)
+
+    def _inspect_fast(self, tool: ToolSpec, args: dict, key: str, c, out: Outcome) -> bool:
+        """Resolve a timeout from current state, without polling. True = retry now with the key.
+
+        ``partial``: undo the committed part, then retry (only where a keyed retry would otherwise
+        repeat it, i.e. key scope "completed"). ``absent``: nothing committed; retry. ``complete``
+        or unknown: fall back to reconciling against visible state, which also waits until the
+        write is visible, so the agent never reads state older than its own success.
+        """
+        status = tool.inspect(self.world, args, key)
+        out.runtime_actions.append(f"inspect_{status or 'unknown'}")
+        if status == "absent":
+            out.runtime_actions.append("safe_retry_with_key")
+            return True
+        if (status == "partial" and c.retry_may_duplicate_partial and self.cfg.compensate_partial
+                and tool.compensate and tool.semantics.compensable):
+            tool.compensate(self.world, args, key)
+            out.runtime_actions += ["compensate_partial_fast", "safe_retry_with_key"]
+            return True
+        return False
 
     def _reconcile(self, tool: ToolSpec, args: dict, key: Optional[str], out: Outcome) -> Optional[dict]:
         if tool.reconcile is None or key is None:

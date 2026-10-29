@@ -186,4 +186,25 @@ hypotheses or tests.
 
 ### Deviations
 
-*(None yet.)*
+None. No errored episodes, so nothing was re-run or excluded. `stack.json` matches the registered
+stack (commit `3bb3250`, clean; replicas 9 s and 0 s; 3 s client timeout; 6 s hold). The fault
+audit matched.
+
+### Outcome (recorded after analysis, 2026-10-28)
+
+Run `runs/real-ledger-20261028-111807`: 2,520 episodes, $15.09, no exclusions. Every response
+came from the requested model.
+
+- **T1 confirmed:** hidden write on real services, harm 69% without keys vs 0% with the runtime.
+- **T2 confirmed:** partial commit, 27% with keys vs 0% with the runtime.
+- **T3 confirmed:** the keys hazard, 27% with keys vs 19% without.
+- **N1 non-inferior:** P6 harm 0/360 real vs 0/360 simulated.
+- **Decision rule: met.** Q1 holds on real services.
+- **Substrate comparison:** equivalent in four of five arms. **Different** for the hidden write
+  without keys: 69% real vs 46% simulated.
+- **Exploratory explanation:** the simulator advances its clock by the payment tool's 1.8 s
+  latency before executing a retry, which shortens the effective invisibility window from 6 s
+  to about 4.2 s. Retries 4.2–6 s after the timeout: 0/39 harmed in the simulator, 36/36 on
+  real services.
+
+Details are in the run's `NOTES.md`.

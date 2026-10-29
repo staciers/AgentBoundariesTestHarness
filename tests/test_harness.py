@@ -1313,6 +1313,67 @@ class TestStageE(unittest.TestCase):
         self.assertTrue(any(st.fallback for st in plan))  # declared alternatives are kept
 
 
+
+class TestInspectFastPath(unittest.TestCase):
+    """The runtime's partial-effects fast path (RuntimeConfig.inspect_partial)."""
+
+    FAST = {"mode": "semantic", "inspect_partial": True}
+
+    def ep(self, faults, runtime=None, scenario="ledger/base", seed=3):
+        fs = [FaultSpec.parse(f).to_dict() for f in faults]
+        return run_episode(EpisodeConfig(scenario, "P6", {"type": "scripted", "profile": "naive"}, fs,
+                                         "+".join(faults), runtime, None, seed), keep_trace=True)
+
+    @staticmethod
+    def pay_actions(r):
+        return [a for e in r["trace"] if e["event"] == "runtime_outcome" and e.get("tool") == "send_wire"
+                for a in e["runtime_actions"]]
+
+    def test_partial_commit_is_compensated_without_polling(self):
+        pc = ["partial_mutation", "timeout_after_execution"]
+        slow, fast = self.ep(pc), self.ep(pc, self.FAST)
+        self.assertEqual((slow["outcome"], fast["outcome"]), ("success", "success"))
+        self.assertEqual(self.pay_actions(slow).count("reconcile_lookup"), 4)
+        acts = self.pay_actions(fast)
+        self.assertIn("inspect_partial", acts)
+        self.assertIn("compensate_partial_fast", acts)
+        self.assertNotIn("reconcile_lookup", acts)
+        self.assertLess(fast["sim_duration_ms"], slow["sim_duration_ms"] - 9000)
+        self.assertTrue(fast["runtime_inspect"])
+        self.assertNotIn("runtime_inspect", slow)
+
+    def test_complete_write_still_waits_for_visibility(self):
+        # A hidden write is complete: the fast path defers to reconciling against visible state.
+        r = self.ep(["timeout_after_execution", "delayed_visibility"], self.FAST)
+        self.assertEqual(r["outcome"], "success")
+        acts = self.pay_actions(r)
+        self.assertEqual(acts[:2], ["attach_idempotency_key", "inspect_complete"])
+        self.assertIn("reconciled_executed", acts)
+
+    def test_nothing_committed_retries_at_once(self):
+        r = self.ep(["timeout_before_execution"], self.FAST)
+        self.assertEqual(r["outcome"], "success")
+        acts = self.pay_actions(r)
+        self.assertIn("inspect_absent", acts)
+        self.assertNotIn("reconcile_lookup", acts)
+
+    def test_off_by_default_and_only_where_the_contract_offers_it(self):
+        from abh.contract import contract_of
+        self.assertFalse(any(a.startswith("inspect_") for a in self.pay_actions(
+            self.ep(["partial_mutation", "timeout_after_execution"]))))
+        tools = {t.name: t for t in make_scenario("ledger/base").tools}
+        self.assertTrue(contract_of(tools["send_wire"]).inspect)
+        self.assertFalse(contract_of(tools["list_invoices"]).inspect)
+        travel = {t.name: t for t in make_scenario("travel/base").tools}
+        self.assertFalse(any(contract_of(t).inspect for t in travel.values()))
+        # Without the hook, the fast path changes nothing.
+        pc = ["partial_mutation", "timeout_after_execution"]
+        slow = self.ep(pc, scenario="travel/base")
+        fast = self.ep(pc, self.FAST, scenario="travel/base")
+        self.assertEqual(slow["sim_duration_ms"], fast["sim_duration_ms"])
+
+
+
 class TestRealServices(unittest.TestCase):
     """The real-services ledger (abh/domains/ledger_real.py). Unit tests need no services; the
     live test runs only with ABH_LEDGER_LIVE=1 and the stack up (services/ledger/stack.sh up)."""
@@ -1372,3 +1433,49 @@ class TestRealServices(unittest.TestCase):
 
         with ThreadPoolExecutor(len(cases)) as ex:
             self.assertEqual(list(ex.map(run, cases)), [c[3] for c in cases])
+
+    @unittest.skipUnless(os.environ.get("ABH_LEDGER_LIVE") == "1", "needs services/ledger/stack.sh up")
+    def test_live_inspect_waits_for_an_attempt_in_flight(self):
+        # While a request with the key holds its lock, inspect must not answer.
+        import threading
+        import time
+        import zlib
+        from abh.domains import ledger_real
+        from abh.world import RealClock
+        sc = ledger_real._build("base", 0)
+        w = World(RealClock())
+        sc.build_world(w)
+        try:
+            holder = ledger_real._pg(ledger_real.PRIMARY, w.real_db)
+            holder.execute("select pg_advisory_lock(%s)", (zlib.crc32(b"send_wire:k-inflight"),))
+            got = {}
+
+            def ask():
+                got["status"] = ledger_real._call(w, "GET", "/payments/attempts",
+                                                  params={"endpoint": "send_wire", "key": "k-inflight"})["status"]
+                got["t"] = time.monotonic()
+
+            t = threading.Thread(target=ask)
+            t.start()
+            time.sleep(1.0)
+            self.assertNotIn("status", got)  # still waiting
+            released = time.monotonic()
+            holder.execute("select pg_advisory_unlock_all()")
+            t.join(5)
+            self.assertEqual(got.get("status"), "absent")
+            self.assertGreaterEqual(got["t"], released)
+            holder.close()
+        finally:
+            ledger_real._drop_db(w)
+
+    @unittest.skipUnless(os.environ.get("ABH_LEDGER_LIVE") == "1", "needs services/ledger/stack.sh up")
+    def test_live_fast_path_compensates_a_partial_commit_at_once(self):
+        fs = [FaultSpec.parse(f).to_dict() for f in ["partial_mutation", "timeout_after_execution"]]
+        r = run_episode(EpisodeConfig("ledger_real/base", "P6", {"type": "scripted", "profile": "naive"}, fs, "pc",
+                                      {"mode": "semantic", "inspect_partial": True}, None, 3), keep_trace=True)
+        acts = [a for e in r["trace"] if e["event"] == "runtime_outcome" and e.get("tool") == "send_wire"
+                for a in e["runtime_actions"]]
+        self.assertEqual(r["outcome"], "success")
+        self.assertIn("compensate_partial_fast", acts)
+        self.assertNotIn("reconcile_lookup", acts)
+        self.assertLess(r["sim_duration_ms"], 6000)

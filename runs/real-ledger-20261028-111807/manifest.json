@@ -1,0 +1,36 @@
+{
+  "launches": [
+    {
+      "mode": "new",
+      "started_at": "2026-10-28T11:18:07-07:00",
+      "git_commit": "3bb3250b5e1d65e0c0b25a5c1cdf473c2bf2583c",
+      "git_short": "3bb3250",
+      "clean": true,
+      "dirty_paths": [],
+      "versions": {
+        "python": "3.11.17",
+        "anthropic": "1.13.0",
+        "openai": "3.29.0",
+        "numpy": "2.4.6",
+        "statsmodels": "0.15.0",
+        "pandas": "3.0.6"
+      },
+      "host": "MacBook-Pro.local",
+      "platform": "macOS-14.3-arm64-arm-64bit",
+      "pid": 15948,
+      "argv": [
+        "/Users/staciers/Documents/Claude/TestHarnessFaultBoundaries/abh/__main__.py",
+        "run",
+        "experiments/real_ledger.json"
+      ],
+      "workers": {
+        "anthropic": 8,
+        "openai": 8,
+        "together": 12
+      },
+      "episodes_in_spec": 2520,
+      "episodes_to_run": 2520,
+      "request_options": {}
+    }
+  ]
+}

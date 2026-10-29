@@ -99,6 +99,11 @@ class ToolSpec:
     # runtime may call it when it cannot tell whether a request finished.
     compensate: Optional[Callable[[World, dict, str], None]] = None
     tags: List[str] = field(default_factory=list)
+    # inspect(world, args, idempotency_key) -> "complete" | "partial" | "absent" | None: how far
+    # an attempt made with this key got, from *current* state (not visible state), once any
+    # in-flight attempt with the key has finished. Lets the runtime skip polling (runtime option
+    # ``inspect_partial``). None = can't tell.
+    inspect: Optional[Callable[[World, dict, str], Optional[str]]] = None
 
     def input_schema(self, extra: Optional[Dict[str, dict]] = None,
                      extra_required: Optional[List[str]] = None, expose_key: bool = True,
