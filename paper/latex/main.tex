@@ -1,0 +1,1284 @@
+% Generated from paper/full.md by paper/latex/md2tex.py. Edit the draft and regenerate,
+% or stop regenerating and edit this file directly once the draft is frozen.
+\documentclass[letterpaper,twocolumn,10pt]{article}
+% The USENIX style targets pdfLaTeX. Under XeTeX (e.g. Tectonic) its breakurl package refuses to
+% load before hyperref, and microtype's kerning and spacing features are pdfTeX-only. So under
+% XeTeX skip breakurl (hyperref breaks long URLs on its own) and load microtype with protrusion
+% only, marking the style's [kerning,spacing] request as already satisfied.
+\usepackage{iftex}
+\ifXeTeX
+  \expandafter\def\csname ver@breakurl.sty\endcsname{}
+  \AtBeginDocument{\providecommand{\burl}{\url}}
+  \usepackage{microtype}
+  \expandafter\def\csname opt@microtype.sty\endcsname{kerning,spacing}
+\fi
+\usepackage{usenix2019_v3}  % USENIX paper templates page; loads hyperref, cite, microtype, xcolor
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{float}  % [H]: supplement figures stay in place
+\usepackage{fvextra}
+\usepackage{xurl}  % let long URLs (e.g. in the references) break anywhere
+
+\newcommand{\todo}{\textcolor{red}{\textbf{[TODO]}}}
+\renewcommand{\tabularxcolumn}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\begin{document}
+
+\date{}
+\title{\Large \bf Execution Boundaries for Agentic Systems}
+% The author comes from an "Author:" line in the Markdown; md2tex.py --anonymous blanks it.
+\author{{\rm Stacie Riddle}}
+
+\maketitle
+
+\begin{abstract}
+Tool-using LLM agents complete tasks involving stateful systems such as paying bills, booking travel arrangements, and maintaining code. Real-world anomalies in distributed systems such as network timeouts and other issues can cause ambiguity about prior writes and reads, including uncertainty about whether a write was fully successful and the inability to read newly written information. This study shows that agents perform poorly under conditions of system ambiguity and simply swapping in higher performing models such as the latest frontier models does not improve performance in these situations.
+
+By running simulations of common errors with 10 models from four families we show that agents without a runtime caused harm 54-99\% of the time when they were exposed to a hidden, ambiguous write. The harm came in the form of duplicate payments, travel arrangements, etc. The most capable model (Fable 5.1) caused harm 99\% of the time with lasting damage done in 96\% of those cases. Offering idempotency key information to tool-using LLM agents increased harm 30\% of the time due to exposure to a partial, ambiguous write, compared with 1\%, as agents generalized the meaning of idempotency key information.
+
+The work described in this paper demonstrates that problems such as these can be solved at the system level. The tool-use contract is added to tool documentation that describes tool behavior more formally. It specifies the error-recovery and monitoring features offered by a tool, as well as the scope of idempotency keys and other constraints.
+
+The control plane in this implementation decides who resolves each kind of problem. The contract-driven runtime handles what happened to a request, the agent handles what to do next, a deterministic gate decides what the agent is permitted to do, and a human decides consequential outcomes the runtime can't resolve. The tool-use contract gives the control plane the ability to mitigate risks by assigning different kinds of risk to different parties.
+
+Eleven preregistered experiments with LLMs found that the tool control system prevented unseen error-related harms for all tested models after the tool control system was implemented. This result held when run on a systems using a Postgres cluster and standard HTTP servers.
+
+The implementation of the contract further reduced the risk of improper key use from 18\% to 5\%, but other model-specific results suggest that risk from improper key use may increase for some key use cases until the tool use contract is updated to include methods for completing incomplete transactions, which reduced risk to 1\%. The tool control system adds one additional round trip per write transaction in the absence of errors, but a fast path for completing hidden incomplete transactions using the tool use contract reduced processing time from 10s of polling to 0.2s.
+\end{abstract}
+
+\section{Introduction}\label{sec:1}
+
+An agent is making a payment to a vendor on behalf of a client. A payment service tries to debit the client's account but can't finish processing the vendor invoice due to a system crash. The payment service doesn't send feedback to the client, who times out. The agent has been given an idempotency key with the property ``safe to retry: it executes at most once'' (a property all idempotency keys have). The agent resubmits the request using the same idempotency key. The service's database records only idempotency keys for completed requests, so the agent's resubmission causes a second debit of the client's account. A later review of the account ledger by the agent shows that the vendor invoice has been paid, and the agent reports success to the client.
+
+Nothing in this trace is particularly unusual. Lost committed writes from timeouts and partial writes and underreplicated data with restricted keys are known challenges for distributed systems. There are known solutions to these problems, such as idempotent and saga-style transaction models and at-least-once messaging with durable messaging systems. What is novel here is the client. Developers working with today's clients see both examples of clients accessing resources beyond their granted permissions~\cite{anthropic2026unintended} and end users granting many of a client's requested permissions, making item-by-item permission review less useful~\cite{anthropic2026automode}. Prior to agents, clients would be limited to software applications built and tested by users who have read the service's documentation and API references. Now, clients include LLMs that read a tool's documentation when prompted to use the tool. These agents are unlikely to be aware of code that restricts access to a key and are likely to interpret undocumented behavior of tools broadly and inconsistently.
+
+Here, agent performance on this task is measured and found that agents were unsuccessful and that \textbf{increasing the amount of training data was not helpful} (Figure~\ref{fig:o2}). Ten models were tested without a runtime or idempotency keys and each was found to cause harm in the event of hidden writes with timeouts and delayed visibility in at least 54\% of test cases. Traces provide insight into this finding. A sample of traces (480) from six models were examined and found that the six models all rechecked state after the timeout and failed to observe a hidden write due to delayed visibility. All six models resubmitted requests as a result. The best-performing model rarely rechecked state a second time in 28\% of test cases and generated final trace claiming there was only one charge. Agents are not failing to reason about the situation; they are reasoning correctly about incorrect observations.
+
+This all brings us to the thesis that is central to this work: failures in tool use should be managed outside the model, in the agent's tool environment. Other tool environment features can assist the agent in managing failures by making information available to the agent that it otherwise would not have, so long as tool developers provide information about what their tools guarantee under failure.
+
+Key results of this paper include the following:
+
+\textbf{A taxonomy of errors} agents can make during execution, including hidden implementation errors such as hidden writing and hidden partial commits, as well as observable implementation, semantic, and authority errors. Multiple parties are responsible for different implementation errors. Evidence about which errors each class concerns is reviewed (\S\ref{sec:2}).
+
+\textbf{An agent execution contract} providing additional details about restrictions on tool access and use, recovery and compensation options, and other features available to tool users. Neither JSON Schema nor MCP's tool annotations can express key scope, partial effects, visibility lag or recovery operations, so today's interfaces leave agents to guess them from prose. The agent execution contract assists runtimes in identifying retriable actions and is used to generate documentation on retriable and nonretriable actions and compensation strategies for nonretriable actions (\S\ref{sec:3}).
+
+\textbf{A control plane} for implementing and assigning contract responsibilities (\S\ref{sec:4}): A deterministic control interface; a contract service; and a system for assigning other contract responsibilities to an individual. In the fast path, an API query to a contract service allows users to learn details about a partially ordered transaction without further queries.
+
+The design of this system is evaluated in eleven registered studies (50,162 LLM experiments, 10 models (11 with a mid-study replacement) in four families plus a frontier tier), five development domains (travel, procurement, operations, scheduling, and SDLC), an out-of-sample accounts-payable workflow created after the project's design was finalized, and a replication study using Postgres and streaming replicas. All confirmatory hypotheses and analytic plans were preregistered.
+
+Important results include:
+
+\textbf{Model capabilities don't protect against harm, and it is hard to predict which models will be harmed.} Under a hidden write, all models were harmed in at least 54\% of episodes, and models in the frontier group caused more lasting damage than models in the strong group (64\% and 32\%, respectively). During testing, one model experienced no harm in simulation and 50\% harm in a Postgres database. Service response times were unchanged between simulation and Postgres tests. Variations in service response times played a role in causing harm (\S\ref{sec:7.1}, \S\ref{sec:7.7}).
+
+\textbf{A clear contract enforced outside the model can reduce risks.} Various unobservable errors injected into the services did not affect models using the contract-driven runtime in either the simulation or those using Postgres (\S\ref{sec:7.1}). Benefits of the contract do not depend on which model is used or the documentation and deployment schedule provided for the tools.
+
+\textbf{Contracts help mitigate the risks of key sharing by reducing information asymmetries about key-sharing relationships.} Using idempotent keys for transactions raised risk of potential losses by agent actions from 1\% to 30\% in cases of hidden partial commitment. Adding contracts with repair guidelines lowered this risk back to 1\%. Descriptions generated from the contract helped most models but hurt some; only enforcement worked for all of them (\S\ref{sec:3.3}).
+
+\textbf{Confidence is not authority.} Without a deterministic authority gate, harm rose from 0\% to 90\%. Escalating all authority violations to a human (simulated) doesn't work because agents were so confident that the result would be escalation of most actions (\S\ref{sec:4.7}). The authority filter and other runtime and routing modifications maintained almost the same number of autonomous task actions as fully autonomous task actions (see P6), with less than half as much harm (\S\ref{sec:7.3}). This approach minimizes the human in the loop.
+
+\textbf{Agents outperform at correcting semantic errors.} Agents correct 98-100\% of semantic errors, while generic and static approaches correct 79\% and 7\%, respectively. Agents are comparable in performance to custom hand-coded rules without requiring them to be written first (\S\ref{sec:7.2}).
+
+\textbf{Using a runtime is cheap insurance.} The runtime incurs a low cost of one extra round-trip per write in failure-free scenarios. In other failure scenarios, the runtime lowers costs to the agent by reducing the number of recovery attempts needed. A contract can offer a shortcut that enables the agent to check partial writes more quickly, in 0.2 seconds, instead of the 10 seconds it takes to poll in this simulation (see \S\ref{sec:4.3}, \S\ref{sec:7.6}).
+
+The rest of this paper is organized as follows. In \S\ref{sec:2}, we classify failures and assign responsibility for resolving each one. In \S\ref{sec:3}, we present the execution contract. In \S\ref{sec:4}, we present the control plane designed to enforce the execution contract. In \S\ref{sec:5} and \S\ref{sec:6}, we present implementation and evaluation techniques. In \S\ref{sec:7}, we present an evaluation of our design. In \S\ref{sec:8}, we compare our work with related work. In \S\ref{sec:9}, we note design limitations. Supplement~\ref{sec:S1} provides information on all implementation and operational defects in the system.
+
+\section{Background and Motivation}\label{sec:2}
+
+\subsection{Agents: A New Type of Client}\label{sec:2.1}
+
+Distributed systems provide clients with various guarantees, such as at-most-once semantics for operations with a given key and the ability to retry failed operations. Production systems implement these guarantees in a variety of ways, even if the guarantees are described formally~\cite{kleppmann2017ddia}. Traditional client developers learn how these guarantees are provided when working with different distributed systems through documentation and other techniques over the course of product development and use. The result of this is bespoke integrations that have been written to encode that specific context for each use of it.
+
+In contrast, an LLM agent has knowledge about tool capabilities through tool metadata including descriptions provided at runtime. An LLM agent has no other knowledge about tools or previous tool use experiences, including those with the tool currently in use. Tool choices are based on recent observations rather than built-in information. Different actions are not only possible for each model, but also can differ among deployments of the same model (\S\ref{sec:7.1}). To offer conventional client experiences, an LLM agent system must offer consistent behavior on each use. It is difficult to offer consistent experiences to clients using only tool descriptions with an LLM agent.
+
+\subsection{Agent Limitations}\label{sec:2.2}
+
+A response to or lack of response to requests cannot be considered a reliable source of information about events at the service.~\cite{lamport1978clocks} Two specific pieces of unreliable information are:
+
+\begin{itemize}
+\item Timeout. The client is unaware of the problem that caused the failure to receive a server response in a timely manner. The client's request may or may not have been processed partly or fully. It may have been processed but with a delay.
+\item Empty read. Inserted values may not be found in lookup queries because of replication lag. The absence of a queried value does not indicate that the value is not present.
+\end{itemize}
+
+This article discusses two kinds of composite faults that include timeouts.
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{XXXXX}
+\toprule
+\textbf{Fault} & \textbf{Specifics} & \textbf{Agent Observation} & \textbf{Response} & \textbf{Actual Result} \\
+\midrule
+\textbf{Hidden write} (timeout + visibility lag) & the write committed & a timeout, then a lookup that finds nothing & conclude it didn't run; retry & a duplicate effect, e.g. a second payment \\
+\textbf{Hidden partial commit} (partial failure + timeout) & the first step committed, the second didn't & a timeout & retry, with the same idempotency key if offered & the committed step repeats, because the service records keys only for completed requests \\
+\bottomrule
+\end{tabularx}
+
+\end{table*}
+
+In both cases, the agent responds correctly to the information it receives, but some of the information it received is incomplete. Efforts to improve model performance alone will not solve these vulnerabilities (\S\ref{sec:7.1}).
+
+\subsection{Failures and Responsibilities}\label{sec:2.3}
+
+Classes of agent failures are defined by the information that agents have and by the availability of potential fixes. Controllers are assigned to fix the various classes of agent failures.
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{XXXXl}
+\toprule
+\textbf{Class} & \textbf{Example} & \textbf{Observable to the agent?} & \textbf{Owner} & \textbf{Evidence} \\
+\midrule
+Unobservable execution result & hidden write; hidden partial commit & no & runtime & \S\ref{sec:7.1} \\
+Observable run-time failure & 5xx, 429, malformed response, visible partial failure & yes & runtime (helpful; capable models also recover) & \S\ref{sec:7.1} \\
+Semantic fault & altered preconditions, unavailable tool, invalid result for given task parameters & yes, by reading carefully & agent & \S\ref{sec:7.2} \\
+Authority & decisions made without proper delegation & not a matter of observation & encoded decision process with human review & \S\ref{sec:4.7}, \S\ref{sec:7.3} \\
+Unresolved consequential outcome & the runtime can't tell whether an irreversible write ran & no & human & \S\ref{sec:7.3} \\
+\bottomrule
+\end{tabularx}
+
+\end{table*}
+
+Reasoning for the above assignments:
+
+\begin{itemize}
+\item Not knowing whether a task is complete is a runtime issue. Knowing whether a task is complete does not involve value judgments. Other tasks and services provided by a service, including key search and task-completion and partial or deferred undo services, can be provided to multiple agents and clients through a runtime system. Other models with capabilities can address state-based issues for which the issue and solution are known. Runtime systems can provide capabilities to already capable models.
+\item Semantic errors should be fixed by agents. Some semantic errors include changes to a tool's input and output requirements and output that is not helpful to a user in completing their task. Other examples of semantic errors include all situations in which the correct action depends on the user's task. Deterministic recovery methods can only correct predictable errors, the unpredictable nature of semantic errors are where models perform well (\S\ref{sec:7.2}).
+\item Authority over a decision belongs to a single gatekeeper. Control over access decisions has nothing to do with an agent's knowledge or cognitive abilities. An agent can have knowledge about an action it is forbidden to perform. Inferences about control cannot be made based on an agent's beliefs about a decision (\S\ref{sec:4.7}).
+\item Other problems are addressed by humans. If the runtime cannot determine the outcome of an irreversible action, someone with more information about the overall service state is required to help address the problem. Approaches involving having the agent try the same action again to resolve the agent's problem, as discussed in \S\ref{sec:2.2}, are not good approaches.
+\end{itemize}
+
+\subsection{Limits of Idempotency Keys}\label{sec:2.4}
+
+Idempotency keys are one method of handling retries~\cite{lee2015rifl,jena2025idempotency}. There are problems with idempotency key information. Different service implementations may provide different idempotency keys in different situations, such as whether the initial request succeeded, leading to problems with partial success of retried client requests. Agents we tested that received idempotency keys labeled ``at most once'' in the trace description had 1\%-30\% more hidden partial successes (C3). Labeling the idempotency key in our experiments reduced hidden agent failures to 3\% (C5). Our agents were not faulty; they behaved correctly according to the information in the description, which was insufficient to support safe agent behavior.
+
+The execution contract serves as a functional interface between program specification and implementation (\S\ref{sec:3}). The contract described and documented here offers a precise definition of an idempotency-related program property that can be enforced by the service and tied to a program's specifications.
+
+\section{The execution contract}\label{sec:3}
+
+A tool interface includes a JSON schema for the tool input and a natural-language description of tool behavior. Both parts of a tool interface lack details about tool errors and retries. For non-agentic tool users, such details are unnecessary because they are unlikely to change and can be validated during tool development. LLM agents interact with the tool description during runtime use, and the results below suggest that LLM agents may have overly optimistic beliefs about tool capabilities (\S\ref{sec:3.3}).
+
+The execution contract specifies the tool's error-handling behavior and other service guarantees made by the tool's service provider. The three stakeholders who use the execution contract are the tool service provider, which must fulfill its contractual obligations; the runtime system, which relies on the execution contract to ensure safe runtime behavior; and tool agents, which use function descriptions extracted from the execution contract for planning.
+
+\subsection{Fields}\label{sec:3.1}
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{lXXX}
+\toprule
+\textbf{Field} & \textbf{Values} & \textbf{Description} & \textbf{Use by Runtime} \\
+\midrule
+\texttt{key\_scope} & \texttt{none}, \texttt{completed}, \texttt{atomic} & scope of a client-supplied idempotency key & attach keys and replay safely; know when a keyed replay can still duplicate \\
+\texttt{partial\_effects} & \texttt{impossible}, \texttt{persist} & whether a request can commit part of its work, and whether that work persists & know that a timeout may hide a partial commit \\
+\texttt{visibility\_lag\_ms} & bounded or not guaranteed & maximum delay before a read sees a write & wait for visibility instead of treating ``not found'' as ``not executed'' \\
+\texttt{reconcile} & whether offered or not & key-based lookup: was this request processed? & handle timeouts based on state, not guesses \\
+\texttt{postcondition} & whether offered or not & requirement on the effect that must hold if operation succeeds & check whether the operation succeeded before signaling success \\
+\texttt{compensation} & whether offered or not & an undo of an \emph{incomplete} attempt, by key & remove a hidden partial commit before replaying \\
+\texttt{inspect} & whether offered or not & a consistent lookup of how far a keyed attempt got: \texttt{complete}, \texttt{partial} or \texttt{absent}, answered once any in-progress attempt with that key has finished & resolve a timeout at once, without polling (\S\ref{sec:4.3}) \\
+\texttt{partial\_report} & yes / no & whether a partial failure reports, machine-readably, what committed & let the agent repair a visible partial outcome \\
+\texttt{repair} & \texttt{none}, \texttt{prose}, \texttt{cancel\_partial} & what the service offers to repair a partial outcome & expose a \texttt{cancel\_partial(tool, key)} operation to the agent \\
+\bottomrule
+\end{tabularx}
+
+\end{table*}
+
+In addition to other components, the contract describes a tool's side effects and how to recover from them. The policy enforcer uses this contract to decide whether human approval is needed and which actor ultimately resolved the issue that the runtime couldn't (\S\ref{sec:4.5}).
+
+The key scope was the main cause of damage (``harm'') in the experiments. Within the \texttt{completed} scope, the idempotency key should be implemented such that the system only stores completed requests in the service's idempotency key database. An initial success followed by a failure isn't stored, so a retry with the same idempotency key would result in a resubmission and redo of the initial operation. In the \texttt{atomic} scope, all parts of successfully committed requests are stored in the service's idempotency key database, so a retry with the same key would provide the prior, possibly partial, result without resubmission of already-completed portions of the request. Both practices are valid. The problem is that both practices use the term ``idempotency key,'' and a statement such as ``safe to retry: it executes at most once'' applies to both practices.
+
+There are two methods related to keys that the runtime uses:
+
+\begin{itemize}
+\item \texttt{compensate(key)} must undo a pending or partially completed request and take no action for a fully completed request. The compensate(key) operation might need to be invoked if the runtime cannot determine whether a request was already completed. The compensate(key) operation should take no action for fully completed requests that the runtime has not seen before.
+\item \texttt{inspect(key)} must be linearizable with respect to other calls to the same key. We used the same locking mechanism that our Postgres service uses for payment transactions (see \S\ref{sec:5}) as a per-key advisory lock for inspect(key).
+\end{itemize}
+
+Experiments can override fields for all tools to alter service scope for observational purposes; this was done in the contract study.
+
+\subsection{Contract vs Existing Tool Interfaces}\label{sec:3.2}
+
+According to the latest protocol version (2026-07-28), a tool annotation (ToolAnnotations) defined in the MCP protocol has four fields documented as ``behavioural hints,'' not guarantees (readOnlyHint, destructiveHint, idempotentHint, and openWorldHint).~\cite{mcp} The following table describes the use of MCP tool annotations in this implementation:
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{XXX}
+\toprule
+\textbf{Contract field} & \textbf{JSON Schema + description} & \textbf{MCP annotations} \\
+\midrule
+side effect, reversibility & prose & \texttt{readOnlyHint}, \texttt{destructiveHint} \\
+idempotent (repeated calls have no effect) & prose & \texttt{idempotentHint} \\
+key scope & prose; usually ``at most once'' whatever the scope & --- \\
+partial effects & prose, if at all & --- \\
+visibility lag & --- & --- \\
+reconcile, postcondition, compensation, inspect & --- & --- \\
+partial report, repair & --- & --- \\
+\bottomrule
+\end{tabularx}
+
+\end{table*}
+
+\texttt{mcp\_annotations} in our code returns a map for all contracts that shows missing or unavailable data for a given episode run of the experiment. For all payment tool contracts in the held-out set, most of the output data is missing, except for the first two rows (because this data is not available for payment tool contracts in our experiment).
+
+\subsection{Generated descriptions}\label{sec:3.3}
+
+A policy can obtain a description of a key from the contract rather than from prose included with the description of a service. Systems with limited commitment options can give agents more control over their commitment behavior than unfettered use of prose descriptions, which can produce nondeterministic commitment behavior. According to the MCP documentation, output prose includes sample prose outputs.
+
+According to the MCP documentation, output prose includes:
+
+\begin{quote}Optional client-supplied key. The key is recorded only when a request completes. A request that failed partway is not recorded: part of it may have taken effect, and repeating it with the same key runs it again. After a failure or timeout, check current state before retrying.\end{quote}
+
+For a tool scoped to the \texttt{atomic} level with \texttt{cancel\_partial} repair behavior, the tool documentation explains that reissuing a partial submission will have the same result as the first submission and gives step-by-step guidance on how to fix a partial submission, including how to reissue a request: Call \texttt{cancel\_partial} with the same key used in the original submission, then submit a full request using the same key. Do not submit new requests with different keys. Doing so could have unexpected results.
+
+Evidence (Q4; Fig.~\ref{fig:o4}). The contract reduced the damage from hidden partial commits with a well-specified \texttt{completed} scope requirement from 18\% to 5\%. This implies that scope mismatches are a major driver of key-related damage and that contracts can mitigate scope mismatches. The evidence was based on 630 episodes on 7 models taken outside a runtime environment. We intend to reduce key-related damage further by applying runtime tools.
+
+\textbf{Describing the failure accurately wasn't enough.} With an accurate contract-generated description and an atomic scope (so we were guaranteed the agent would not attempt retries) we actually observed an increase in the rate of harm from 7\% to 19\%. This was because partial failures were not being repaired and the handling of the situation was not being specified to the agents, who were left to their own reasoning as to whether or not to send a new request (note the disctinction from a retry - they almost always reasoned that a new request should be sent with a new key). This behavior was observed in 84 of the 270 open-model episodes in the experiment arm. Only 52\% of the agent instances checked state prior to sending a new request compared with 88-99\% of the agents in the other experiment arms.
+
+After this behavior was observed, a second experiment was conducted with a repair mechanism for partial atomic transaction failures. Human descriptions of methods for repairing partial atomic transaction failures were given to the agents, and the observed rate of damage dropped from 14\% to 2\%. Additional specifications for a \texttt{cancel\_partial(tool, key)} method were added to the contract based on these observations to further reduce observed damage to 1\%. The cancel method is believed to have reduced the number of new keys repeatedly submitted by agents, as it was used 411 times out of 630 episodes. In the first study, there was no formal contract, and information about repair methods was collected by having agents interpret text fields, a type of prompt engineering. The formal contract used in the second study completely eliminated observed damage.
+
+Selective use of words in prompts may decrease the risks to agents without protections. In our study, contract descriptions decreased risks for at least six of seven models by 1 point for GLM-5.3-Flash to 52 points for GPT-6-Luna. Contract descriptions increased risks from 10\% to 23\% ($-$13 points; I$^2$ = 94\% across models) for DeepSeek V4-Pro. Selective use of words in prompts has different effects on different models and depends on other aspects of the prompt and environment in which the prompt is used.
+
+Based on our experiences, we offer the following interface suggestions to developers of agents.
+
+\begin{itemize}
+\item A contract that tells an agent what went wrong should contain provisions for addressing errors and deficiencies.
+\item The contract description sections are among the most problematic parts of the contract. Writing descriptions benefits the agent. Writing descriptions does not help predict the agent's future behavior.
+\end{itemize}
+
+At this point, we note that all descriptions in our experiments were in English and we have not explored whether any of the effects of variable descriptions that we found would also occur in other languages or with translated descriptions. Any methods an agent might use to affect another agent's behavior through descriptions will be subject to the same variability in interpretation of descriptions as other agents and methods, including variability by model and language. Benefits of such methods include the ability to include promises in a contract and provide only descriptions to assist the agent in fulfilling his or her contractual obligations.
+
+\section{System Design}\label{sec:4}
+
+The harness controls the agent loop and every tool call proposed by an agent passes through the control plane (Fig.~\ref{fig:o1}). Researchers can test different tool-use policies for the same agent and seed with different errors. We recommend using this design in production settings, including an intermediate control layer between agents and the services they act on. In a production setting, the runtime layer serves as an intermediate layer between agents and the services they call, helping to retry proposed calls, check results, and undo partial work. This way the model's reasoning is isolated from causing unintended side-effects that could be difficult to debug.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{../figures/fig1_architecture.pdf}
+\caption{The control plane. Every proposed tool call passes an authority gate and a policy gate, then a contract-driven runtime. Outcomes that the runtime can't resolve are routed to the agent or, if consequential, to a human. The execution contract (blue) drives the runtime and the gate is enforced by the services, which generate the tool descriptions the agent sees.}\label{fig:o1}
+\end{figure*}
+
+\subsection{Pipeline}\label{sec:4.1}
+
+For each proposed request, the control plane:
+
+\begin{enumerate}
+\item \textbf{Checks authority} against the principal's delegation policy (\S\ref{sec:4.5}).
+\item \textbf{Checks the policy gate}: should a human approve this action before it runs?
+\item \textbf{Executes through the runtime}, which owns everything between the call and a definite outcome (\S\ref{sec:4.2}--4.3).
+\item \textbf{Routes to resolution} an outcome the runtime couldn't resolve goes either to the agent as a structured execution state,or to a human if it is consequential (\S\ref{sec:4.6}).
+\end{enumerate}
+
+The agent receives either the result annotated with its execution state (\texttt{EXECUTED} or \texttt{VERIFIED}) or a structured description of what is unresolved.
+
+\subsection{Contract-Driven Runtime}\label{sec:4.2}
+
+The runtime's job is to turn every request into a definite outcome without help from the agent and when that's not possible, to relay exactly what is unknown back to the caller. It uses only the operations that the contract declares. The safest approach (that which caused the least amount of harm) was found to be via the use of clearly defined boundaries: an agent is not given the opportunity to guess at how to fix an incomplete operation. If a tool offers no contractual definition for steps to reconcile a failed operation, it is considered unreconilable and that is the outcome that is returned (and which then can optionally be escalated to a human).
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{XX}
+\toprule
+\textbf{Failure} & \textbf{Runtime action} \\
+\midrule
+429 rate limit & honour \texttt{Retry-After}, retry \\
+5xx & exponential backoff, retry; persistent unavailability is reported as a \emph{semantic} failure, so the agent picks another route \\
+Business rejection, invalid request & not retried; reported as a semantic failure (``it was not executed; retrying won't help'') \\
+Malformed response & reconcile by key; replay with the key if not found \\
+Visible partial failure & compensate the committed part, retry under a fresh key \\
+Timeout & the path below \\
+\bottomrule
+\end{tabularx}
+
+\end{table*}
+
+\textbf{Keys.} For a keyed tool, the runtime attaches an idempotency key if the agent didn't, so every retry was keyed whether or not the agent understood keys.
+
+\textbf{The timeout path.} A timeout on a write is the case that harms agents the most frequently because it can hide the actual outcome of a write. For ease of review, here is the function used in the experiments on this critical path:
+
+\begin{Verbatim}[breaklines,fontsize=\footnotesize]
+on timeout(tool, args, key):
+    if fast path enabled and contract.inspect:                 # §4.3
+        s = inspect(key)                                       # waits for any in-progress attempt
+        if s == absent:  retry(key)
+        if s == partial and contract.retry_may_duplicate_partial:
+            compensate(key); retry(key)
+        # complete or unknown: fall through
+    for i in 1..4:                                             # reconcile against visible state
+        if reconcile(key) finds it: verify postcondition, waiting for visibility; return VERIFIED
+        wait 2.5 s
+    if key or tool is idempotent:
+        if contract.retry_may_duplicate_partial: compensate(key)   # key scope "completed"
+        retry(key)
+    else:
+        return EXECUTION_UNKNOWN                               # routed (§4.6)
+\end{Verbatim}
+
+\texttt{retry\_may\_duplicate\_partial} holds when the key scope is \texttt{completed}, the tool can commit partly, and the request isn't naturally idempotent. That is exactly the case in which a keyed retry repeats a hidden partial commit, so the runtime attempts a first fix. Under an \texttt{atomic} scope the replay returns the original outcome, and compensation isn't needed. Because \texttt{compensate} must leave a completed attempt alone (\S\ref{sec:3.1}), calling it when the outcome is unknown is safe.
+
+\textbf{Verification.} After a call succeeds the runtime checks the tool's postcondition and polls until the write is confirmed. An agent that reads after a verified success sees its own write.
+
+\textbf{Failure classification.} Failures that the runtime can't resolve are categorized. An \emph{execution} failure is one with an unknown cause to the runtime and can be labelled either \texttt{EXECUTION\_UNKNOWN} or \texttt{PARTIALLY\_EXECUTED}. A \emph{semantic} failure is one in which the service understood the result and refused the outcome of it (e.g. available flights are outside of the maximum expense threshold) or the tool is persistently unavailable.
+
+\subsection{Partial-Effects ``Fast Path''}\label{sec:4.3}
+
+Polling is the correct course of action when waiting for a hidden \emph{complete} write to become visible at the service endpoint. It's the condition in which the write exists and will eventually become visible. The time between each poll is determined based on the replication lag and there are numerous approaches, such as exponential backoff, that are used to eventually end this task in failure. In the case of a hidden \emph{partial} commit, the runtime only wastes time polling for a write that will never become visible and this stood out when calculating the overhead for using a runtime (Table~\ref{tab:o2}). The design modification made to compensate for this situation is being called the partial-effects fast path. It provides a way for the runtime to request the status of the request.
+
+The \texttt{inspect} operation in the contract removes the poll. If the operation times out in the runtime, the runtime asks the contract about the status of the keyed operation attempt:
+
+\begin{itemize}
+\item \textbf{\texttt{partial}:} repeat task with same key (completed scope only, where a keyed retry would otherwise repeat the committed part);
+\item \textbf{\texttt{absent}:} no progress; retry;
+\item \textbf{\texttt{complete}:} fall back to reconciliation, which also blocks until the write is visible to the agent and prevents the agent from reading old values.
+\end{itemize}
+
+\textbf{The in-progress guarantee.} A lookup after a timeout can safely be performed only if the payment attempt is complete. A client timeout does not reveal anything about the state of the server. The payment attempt may not yet be complete on the server, and a lookup could fail to return a value or result in a duplicate payment attempt on the server, duplicate payment attempts occurred in experiments. The lookup operation must be linearized with respect to other operations on the same key (\S\ref{sec:3.1}) to meet the contract. We meet the contract by placing an advisory lock on the key for each payment attempt and using it to perform the lookup on the server. Other lookup operations on the same key block and return the committed value until all other payment attempts on the same key are complete. In a live test using the Postgres system but not the simulation, we placed the advisory lock on the key for the lookup operation using a different connection to verify that this operation was properly blocked.
+
+\textbf{Hardening in proportion to harm.} Incomplete responses are an example of a general principle for production systems, that every step in a production system should have some protections against errors at that step, depending on the error's impact. Long polling times can affect response times in a production system. Incomplete responses can result in other problems, including multiple writes, with different costs and impacts for the system owner. Costs and impacts of incomplete responses differ by system, not by application area. For example, an incomplete response to a conference inquiry that prevents a conference booking can be very costly to a conference company that loses sales of conference space to customers. The fast path approach does not provide extra hardening protections for a production system. Rather, the fast path approach ensures reliable incomplete responses by implementing locks on keys to prevent duplicate entries with high costs. There is no added value to a complete response because duplicate entries cannot occur with a complete response. Other steps in the process provide responses.
+
+Additional steps to hardening an agentic system such as this one include mitigating latency issues that lead to client requests timing out. A client request may be received by the service after the \texttt{inspect} operation is performed but has no outcome. Mitigation strategies for this issue include techniques to uniquely identify and avoid processing client requests more than once. Because uncompleted retry requests lack a unique identifier, the uncompleted portion of a retry request can be processed again. Techniques for avoiding multiple client request processing include setting deadlines for client requests that the service will not process. Other techniques include fencing tokens and sequence numbers. These techniques increase the cost of client requests and are generally discouraged but may be useful in certain situations. Relevant information for making these decisions is included in the service-level agreement, such as information on the costs and reversibility of duplicate processing and the scope of keys and responses. We did not implement deadline techniques. Our fault injection tool does not drop client requests, so this scenario was not observed in testing (\S\ref{sec:9}). Deadline techniques are a subject for future research.
+
+\textbf{System Cost (exploratory; scripted agent on the real ledger, 20 episodes per cell).}
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{lllllX}
+\toprule
+\textbf{Condition} & \textbf{Runtime} & \textbf{Runtime requests} & \textbf{Waits} & \textbf{Payment call} & \textbf{Harm} \\
+\midrule
+partial commit & P6 & 12 & 4 & 13.3s & 0/20 \\
+partial commit & P6 + fast path & 5 & 0 & \textbf{3.2s} & 0/20 \\
+hidden write & P6 + fast path & 7 (+1) & 3 & 10.7s (unchanged) & 0/20 \\
+no fault & P6 + fast path & 1 & 0 & 0.05s (unchanged) & 0/20 \\
+\bottomrule
+\end{tabularx}
+\caption{The 3s client timeout is included in every faulted row. The fast path gains nothing on a hidden write, which must still wait for visibility, and costs it one request.}\label{tab:o2}
+\end{table*}
+
+It is off by default; with it off, all 47,219 simulated episodes from our studies replay identically.
+
+\subsection{Responses with and without the Runtime}\label{sec:4.4}
+
+With the semantic runtime, a resolved call returns the service's response plus its execution state. An unresolved one returns a structured object rather than an HTTP error string:
+
+\begin{Verbatim}[breaklines,fontsize=\footnotesize]
+{"execution_state": "EXECUTION_UNKNOWN", "failure_class": "execution",
+ "error_type": "timeout", "runtime_actions_taken": ["attach_idempotency_key", "reconcile_lookup", ...],
+ "guidance": "The runtime could not determine whether this action executed. Do not repeat it blindly; verify state or escalate."}
+\end{Verbatim}
+
+Without the runtime, the agent sees what a typical HTTP client returns: \texttt{Error (timeout): ...}.
+
+\subsection{Authority and Policy Gates}\label{sec:4.5}
+
+\textbf{Authority.} Authority is independent of uncertainty: an agent may know exactly what to do, and the runtime may be certain it can execute it, yet the action may exceed what the principal is delegated to do. Each scenario's principal has a delegation: a set of tools and a list of rules, each a predicate over the call and the world (e.g. ``reservations totalling over \$1,000 need a manager''). The gate checks every call deterministically and, on a violation, requests approval from the rule's approver role before execution. A denial returns the human's reason to the agent.
+
+\textbf{Consequence.} P6's confidence gate also requests approval for consequential writes when the agent's self-reported confidence is below a threshold. In the Stage D ablation, removing the gate made no measurable difference to success (77\% vs 76\%; \S\ref{sec:7.3}), mainly because agent confidence rarely dropped below the threshold (\S\ref{sec:4.7}).
+
+\subsection{Routing Unresolved Outcomes}\label{sec:4.6}
+
+The runtime uses the policy to determine which way to route a process with a questionable outcome: human or agent. A human is chosen when an \emph{execution} failure is detected and the cost of failure is highly consequential and/or irreversible. In this system, this state maps to the statuses \texttt{EXECUTION\_UNKNOWN} or \texttt{PARTIALLY\_EXECUTED} and contained primarily within the scenario labeled P6 in the test results. The human then reports the actual outcome to the system, which relays it to the agent (allowing any dependencies on that agent to then proceed accordingly). Everything else goes to the agent with the structured state of \S\ref{sec:4.4}.
+
+With humans being the most costly resource in the system (both in terms of latency and estimated cost), this study seeks to determine the minimal amount of human interaction needed to guarantee a safe and deterministic agentic system. It was determined that routing to a human in the manner just described compared favorably with using the runtime instead and resulted in approximately the same low amount of harm overall (3-4\%). With no runtime, humans were asked by the system to assist in 38 of every 100 episodes. With the runtime, no human escalation occurred and the harm rate was kept the same. When we attempted to replace the human with an LLM agent, harm increased to 21\%. This confirmed that agents work well within runtimes that have clearly defined boundaries.
+
+\subsection{Confidence is Not Authority}\label{sec:4.7}
+
+What about escalating a task when an agent's measure of confidence drops below a certain threshold? Well, surprisingly, agent's are actually very sure of themselves. Even with a threshold of over 80\% confident, no model stopped to escalate a decision to a human. Digging into this observation alone is a subject for future study. For this paper however, we have to ask what is confidence and how does it relate to authority? \emph{Confidence} is the agent's estimate that an action is correct and is what the user wants. \emph{Authority} is whether the principal permitted the action at all. An agent can be certain about an action it isn't permitted to take. Treating authority as low confidence produces a design flaw that tuning can't fix, and a team that describes its system this way can spend a lot of effort modifying thresholds without reducing harm. Therefore, we keep the two separate and use this separation to define another agentic boundary: authority is checked by a deterministic gate (\S\ref{sec:4.5}), and confidence plays no part in whether or not an agent may proceed under certain conditions controlled by the gate.
+
+\textbf{Agents knew the rule and were confident anyway} \emph{(An illustrative example from Stage B)}. Every agent was given the organization's approval policy in its instructions. One rule in particular stated that trips over \$1,000 need a manager's approval. Under confidence-only gating (P3), agents still committed over-limit bookings with high stated confidence. In 60\% of those episodes, the agent's final message in its trace even mentions the rule! The agent booked the trip, noted that it was over the limit, and asked the user to check that a manager had approved it. Why did agents that knew the rule go ahead? Under P3, each agent's instructions for the episode also said that ``some actions may be routed automatically to a human approver before they execute''. Some final messages repeat this expectation: one says approval requests ``were supposed to be sent to the manager automatically''. We interpret this as agents expect a safety check from the system when they receive information in the prompt that a safety check may be performed by the system. Agents have no memory of past episodes (\S\ref{sec:4.8}) and other reasons to expect a safety check besides information in the prompt. We did not directly investigate the impact of this information because it was included in all experimental conditions through the inclusion of the safety prompt. One important lesson for future studies is that providing information to agents about safety measures could cause agents to depend on those safety measures to perform safety checks, so the safety measures have to actually perform the checks.Separately, the agents' confidence was an honest answer to the question they were asked, since the booking was what the user wanted. This subtlty demonstrates how much variability can be introduced into a system with minor differences in phrasing of instructions given to agents and calls out the importance of runtime protections and the study of including a clear contract separate to the agents' instructions as well as thorough testing even including simulations.
+
+\textbf{How confidence is obtained.} The harness doesn't compute it. Under P3 and P6, every tool schema has a required \texttt{confidence} argument, and the instructions ask for ``your honest probability that the call is correct and is what the user actually wants done now''. The model writes the number; the gate compares it with the threshold and uses 0.5 if the model omits it. This is verbalized confidence, which is known to be overconfident~\cite{xiong2024uncertainty}. Consistency-based estimates (sampling the model several times) or token probabilities might calibrate better; we didn't test them. Any of them would still estimate whether the action is right, not whether it is permitted. This is left to future work.
+
+\textbf{No threshold separates them} (Table~\ref{tab:o3}). In P3's lowest-threshold arm, where the gate almost never fired, the median stated confidence was 0.90 on violating calls and 0.95 on compliant writes. Given one of each, the violating call was the less confident only 64\% of the time (50\% would be no signal).
+
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{lXXX}
+\toprule
+\textbf{Threshold} & \textbf{Violations caught} & \textbf{Compliant writes escalated} & \textbf{Reads escalated} \\
+\midrule
+0.7 (registered) & 3\% & 0\% & 7\% \\
+0.9 & 27\% & 8\% & 15\% \\
+0.95 & 57\% & 34\% & 48\% \\
+0.97 & 76\% & 69\% & 79\% \\
+1.0 & 98\% & 99\% & 99\% \\
+\bottomrule
+\end{tabularx}
+\caption{Raising the threshold catches violations only by escalating nearly everything. At 1.0, the gate is universal approval, which cost about six times as much human time as P6 in Stage B. Reported confidence on violating calls also varied by model, from a median of 0.80 (Opus, Haiku) to 0.99 (GPT-6.1-Sol), so no single threshold suits every model. 237 violations, 1,421 compliant writes and 2,397 reads (exploratory).}\label{tab:o3}
+\end{table}
+
+The authority gate caught every violation and escalated nothing else, because it checks the rule rather than the agent's belief.
+
+\textbf{What confidence gating adds elsewhere.} It contributes nothing measurable to our experiment outcomes (see P6 results): removing the confidence gate confirmed the observations by leaving success unchanged in the subsequent experiment run without it (77\% vs 76\%; equivalent within $\pm$5 points, K2) (Fig.~\ref{fig:o3}b). On its own, confidence-only gating (see P3) was the most harmful policy we tested (34\% harm, see Stage D). Perhaps most importantly, the agents can't see the type of failure that matters most: \emph{unrecognized} ambiguity, where the agent doesn't know it is uncertain. Detecting unrecognized ambiguity is an open problem for future work.
+
+\subsection{Episode Isolation}\label{sec:4.8}
+
+Each episode is a separate interaction, and the agent has no access to information from other episodes to help improve performance across episodes. A new agent, task instance, and simulated human participant are instantiated for each episode. For a given episode, the agent has access only to system instructions and tool information relevant to the current task instance. The agent does not have access to information about past failures or other past interactions with a human or the environment from other episodes. The same model version is used across a single study. Cached prompts, if available from a model provider, include repeated text in multiple prompts to reduce costs while providing the same information to the model.
+
+Prompt caching has implications for the inferences drawn and the two conclusions reported in this paper. One conclusion is that all performance data reported for models are from first-time responses to prompts and reflect agent behavior in deployment, including failed responses, in the real world. Agents in deployment do not have the benefit of human or agent corrections or multiple chances to respond to the same prompt; multiple responses by a model to the same prompt do not constitute learning opportunities. Another conclusion is that the findings in this paper do not apply to agents with stored information. Agents with stored information might learn to take more time before timing out or to rely on corrections received during a deployment that other agents in other deployments do not receive. Managing learned behaviors is a subject for future research. All agents described in this paper behave consistently when interacting with the runtime across experimental trials in this study.
+
+\section{Implementation}\label{sec:5}
+
+The system is written in Python and consists of a control plane, runtime, contracts, fault injector and evaluator. There are five workload domains: travel, procurement, operations, scheduling, and software development. There are five agent adapters (3 LLM and 2 non-LLM) used for 10 models (Fable 5.1, Opus 5.5, Haiku 5.5, Astra 6, Sol 6.1, Luna 6, DeepSeek-V4-Pro, DeepSeek-V4-Flash, GLM-5.3, GLM-5.3-Flash) from 4 families (Anthropic, OpenAI, DeepSeek - open weights, GLM - open weights).\footnote{The DeepSeek-V4-Flash model was discontinued by its developer before the contract study and was not part of the contract study or assessed in the contract study. The DeepSeek-V4.1-Flash model was part of the contract study (as an exploratory supplement) and Stage E and actual services for 11 models (Supplement~\ref{sec:S1}, issue 14).} The infrastructure was then extended to use a Postgres cluster (with a primary, fast read replica, and slow read replica), as well as a ledger service and fault proxy both implemented using the Python standard-library HTTP server.
+
+\textbf{Control plane and runtime.} The control plane (\S\ref{sec:4}) is a central component that accepts all requests and applies authorization and other policy checks before sending some requests to the runtime and handling others directly. We offer three runtime configurations for each of our experiments to isolate runtime effects: no runtime, naive retry, and semantic contract runtime. We generate contracts for each experiment episode using hooks (\texttt{reconcile}, \texttt{postcondition}, \texttt{compensate}, \texttt{inspect}) defined for each tool. Some parameters in the tool contracts can be overridden during each experiment episode to test different contract and repair features.
+
+\textbf{Simulated services.} Each domain's services keep their state in a versioned world. Every write records the time at which it becomes visible, so reads can see a stale version while the evaluator sees ground truth. An effects ledger records every external side effect (a charge, a booking, a page to an oncall engineer) with a business identity used to detect duplicates, and the point in the workflow at which it was undone, which separates a duplicate that coexisted with the original from a partial attempt the runtime cancelled before replaying. With the \texttt{completed} scope, a key is only recorded when a request finishes completely. This observability was added because initially agents were undoing their errors and these were going undetected in the simulation, but in real life circumstances the actions being simulated would cause unhappy customers, increases in customer support costs, etc. Services enforce the contract's key scope themselves: under \texttt{completed} scope a key is recorded only when a request finishes.
+
+States for each domain service are maintained in a versioned world. Writes to a domain service include a timestamp for when the change becomes visible. Simulated reads and other operations can use older versions of a domain service's state. The service evaluator uses ground truth. An effects ledger logs the records for each domain service, such as charges and reservations, and calls made to an oncall engineer. These transactions include unique identifiers in order to detect duplicate external actions and mark at what point in the workflow each external effect is undone and which party performed the corrective action. The completed-scope simulation was implemented to address issues found during review of trace samples collected during simulation runs in which agents were observed rolling back their errors after committing them. In real life circumstances the actions being simulated would cause unhappy customers, increases in customer support costs, etc. and as such necessitated being recorded separately. Services enforce the contract's key scope themselves: under \texttt{completed} scope a key is recorded only when a request finishes.
+
+\textbf{Fault injector.} The Injector allows setting faults for individual experiments that can be chained using aspects of the simulator harness, and injected according to a random seed for the episode. Multiple injected faults for a call are handled in the order they would be handled for actual calls: world-state changes before the call, failures before the call, changes to what executes and when it becomes visible, and changes to the response. Incompatible sets of injected faults are identified before the call is processed. Call logging includes injected faults and whether the call committed to assist evaluators in matching injected faults to specific controllers.
+
+\textbf{Agent adapters.} Adapters for the Anthropic and OpenAI APIs and other OpenAI-compatible providers with open-weight models enable tool use by agents. Overrides prevent SDK-based tool provider retries to allow for agent harness tool retries due to rate limits and other transient issues, subject to constraints on the number and timing of agent harness retries. The episode outcome includes information about the number of test harness tool retries and timeouts per episode. A replay agent can call tools in the same way as agents did during a recorded episode, enabling tool use scoring without calling any models.
+
+\textbf{Real services.} The held-out ledger service, which makes vendor payments from a cash account by wire transfer or ACH, if wire transfers are unavailable, was evaluated in this study. This service was chosen for its complexity, all held-out datasets include a paid and unpaid invoice for one vendor and other vendor invoices. We created a Postgres 16 primary and two replicas, a hot standby and a 9-second delayed replica, each in a separate Docker container. We created a ledger service that processes vendor payments in two database transactions on Postgres: (1) sending payment from the cash account and (2) marking the invoice as paid. To prevent duplicate payments to the same vendor, the ledger service uses idempotency-key rows in the database and advisory locks on those keys to serialize service calls with the same idempotency key. The \texttt{inspect} function also uses advisory locks on idempotency keys before checking the primary database. A fault proxy relays ledger service responses to callers, extending connection times beyond the 3-second caller timeout and prompting the ledger service to fail at a selected point between the two payment transactions. For each test run, we created a new database and copied it to the evaluator's environment after each API call to apply the same correctness criteria to both real and simulated services. We used a real-time clock and sleep commands to introduce delays. We think these measures were adequate for this study. Other studies using cloud-based services and testing between data centers and regions may also be helpful.
+
+\textbf{Runs and logs.} The experiment design is divided into episodes, each assigned a unique identifier drawn from the experiment description. This enables retrying or relaunching episodes when errors occur, including those related to platform-imposed token limits, without disrupting other users' identifiers or other episodes in the experiment. Details of each run, including the current commit for the code and whether the working directory was clean at the time of the run, and other relevant information, such as versions of other software and the number of workers, are logged. Status information is logged and used by a monitoring process for other active runs. Workers are separated by provider to prevent delays due to performance or rate-limiting issues on a given platform. Logs for each episode, including all function calls, tool descriptions given to the agent, and other automated actions and referrals, and ground truth assessments, if desired, are saved. Supplement~\ref{sec:S1} lists all errors encountered and fixed during development of the test system and experiment runs and the effect, if any, of the errors on the results.
+
+\textbf{Use of AI tools.} Claude Code Opus 5.5 was used to create all code artifacts for this project, including those related to the control plane, runtime, simulated and live services, agent adapters, and analysis scripts. The coding agent was also used to run and manage the experiments described in the paper. Research questions, the execution contract, the failure taxonomy, and preregistered hypotheses and other analysis plans described in the paper, were developed by the authors. All analysis plans were preregistered before their outcomes were seen. Unit tests, integration tests, and other validation procedures, including exact replay of 47,219 analyzed simulated episodes and defect logs detailed in Supplement~\ref{sec:S1}, were used to validate the implementation. The coding agent is different from the LLM agents described in the paper. AI tools were also used for editing this paper (e.g. formatting, keeping text synced with diagram labels) and for drafting parts of the supplementary documentation that were ported over from the code.
+
+\section{Methodology}\label{sec:6}
+
+\subsection{Workloads}\label{sec:6.1}
+
+\textbf{Development domains.} Five development domain were created, scenarios in which agents perform tasks on behalf of an organization: planning trips, buying things, performing other operations tasks, such as rollbacks, scheduling meetings, and using a software development environment with repositories and other continuous integration features, including pull requests. Within each domain scenario, three sub-scenarios were created: \texttt{base}, \texttt{ambiguous}, and \texttt{authority}. In the ambiguous sub-scenario, the agent must ask about the requester's goal to complete the task. In the authority sub-scenario, the agent must perform an action that the principal did not authorize, such as an action to get approval for a trip above the organization's travel spending limit. Fifteen total scenarios were created. The semantics of all write tools match the services they represent. Postaction and other reconciliation functions provided by related production services, such as payment reversals and travel cancellations, are also available.
+
+\textbf{Held-out ledger.} The accounts-payable domain \texttt{ledger} was developed for Stage E after the system specification and baselines were created. It is a parameterized domain. For each seed, a new task with different vendors, invoices, and distractors is created to avoid overfitting the model to a specific task. Different distractors are created for each seed to avoid overfitting to a specific order. A Postgres replication domain implements the same task on a Postgres database. See \S\ref{sec:5} for more information.
+
+\textbf{Ground truth.} End states and outcomes for different scenarios are documented and used in outcome evaluation. LLMs and agents providing information about their own outcomes have no role in outcome evaluation under this approach. An effects ledger is used to avoid counting harmful and other agent errors twice.
+
+\subsection{Faults}\label{sec:6.2}
+
+The injector can simulate 12 types of faults: 9 execution faults (pre- and post-call timeouts, 5xx errors, 429 errors, incomplete and malformed responses, delayed response visibility, duplicate execution, partial commit) and 3 semantic faults (changed precondition, invalid task result, unavailable tool). All 12 types of faults can be simulated during a single invocation of a service, in any order that could occur during an actual service call. Two compound faults discussed in the paper include hidden writes (post-call timeout and delayed response visibility) and hidden partial commits (partial commit and timeout) (\S\ref{sec:2.2}). Service invocations to which faults are added are chosen at random using a seed for the episode. For real services, the injector defines faults to simulate; the proxies and services being tested implement these faults; audits after each run show that the requested faults were implemented.
+
+\subsection{Models and Agents}\label{sec:6.3}
+
+\begin{table}[t]
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{XXl}
+\toprule
+\textbf{Family} & \textbf{Strong} & \textbf{Weak} \\
+\midrule
+Anthropic & Claude Opus 5.5 & Claude Haiku 5.5 \\
+OpenAI & GPT-6.1-Sol & GPT-6-Luna \\
+DeepSeek (open weights) & DeepSeek-V4-Pro & DeepSeek-V4-Flash \\
+GLM (open weights) & GLM-5.3 & GLM-5.3-Flash \\
+Frontier tier & Claude Fable 5.1, GPT-6-Astra &  \\
+\bottomrule
+\end{tabularx}
+\caption{Models. DeepSeek-V4.1-Flash replaced DeepSeek-V4-Flash after its provider withdrew it (Supplement~\ref{sec:S1}, issue 14), for 11 models in all. Every model ran at reasoning effort \texttt{high}. Open-weight models were served by one provider at pinned versions, and every response's served model ID was checked.}\label{tab:o4}
+\end{table}
+
+Each agent is provided with information about the task and simulated-company documents describing tools and other policies and completes the task in up to 30 actions. The harness mediates actions taken by agents and reports tool usage proposed by agents to the control plane (\S\ref{sec:4}). Agents who pause to ask their principals questions about the task during Stage B and other task-related actions get one answer from their simulated principals during the episode. Episodes are independent; agents do not retain information across episodes (\S\ref{sec:4.8}).
+
+\subsection{What we compare}\label{sec:6.4}
+
+\textbf{Runtimes:}
+
+\begin{itemize}
+\item none - errors in requests are sent to the agent in the same way an HTTP client would see them
+\item naive retry - retries with backoff and other techniques, but without any knowledge of system operations
+\item contract-driven semantic runtime - described in detail in the above sections
+\end{itemize}
+
+\textbf{Policies:}
+
+\begin{itemize}
+\item P1 - agents act autonomously
+\item P2 - universal approval of every side-effecting action
+\item P3 - confidence-based gating
+\item P4 - approval of every high-consequence action
+\item P5 - the agent decides when to ask for clarification
+\item P6 - our design
+\item Oracle - escalates exactly when the policy rules say a human (simulated) is needed. A study can set the runtime independently of the policy, which is how Stage D separates its effects.
+\end{itemize}
+
+\textbf{Deterministic baselines:}
+
+\begin{itemize}
+\item fixed - a workflow that runs the scenario's reference plan
+\item domain-independent - registry of rules, which includes these actions: re-read if rejected, re-read using same key, fallback to other tools listed in registry
+\item hand-tuned - rules with per-task validators, state checks and replan targets, or, on the held-out family, rules derived from its specification.
+\end{itemize}
+
+\textbf{Humans (simulated):} In each episode, administrators and approvers supply verified incident data with a 3\% error rate and some cognitive fatigue. No human testing of incident data was conducted. Postepisode estimates of human incident response and labor costs in each case are based on models of organizational response times using publicly available data about such incidents~\cite{verica2022void,pagerduty2021digitalops}. Publicly available and modeled data are identified as such.
+
+\subsection{Metrics}\label{sec:6.5}
+
+Each episode has exactly four outcomes:
+
+\begin{itemize}
+\item \emph{success} - task completed without any negative consequences
+\item \emph{self-corrected} - correct outcome for completed task, adverse effects during task, such as a duplicate purchase that was later reversed
+\item \emph{harm} - harm in the final state, regardless of intermediate events
+\item \emph{fail-safe} - task not done, no harm
+\end{itemize}
+
+\emph{Harm} to outcomes in our experiments includes attempted and reversed harm, as the attempted double payment and reversal in some trials was harmful. Automated trial success is the proportion of successful automated trials across all trials. Intervention accuracy and recall metrics compare automated and human intervention recommendations. Cost metrics include the number of model queries and tokens, cost of model queries, actual or simulated elapsed time, and estimated human time. All rates are reported with denominators; full definitions are in docs/DEFINITIONS.md in the artifact.
+
+\subsection{Pre-Registration and Statistical Methods}\label{sec:6.6}
+
+Each of the eleven studies followed the same protocol (Supplement~\ref{sec:S1}):
+
+\begin{enumerate}
+\item A preliminary test run to detect problems with scenarios, harness or design before the full run.
+\item Registration of hypotheses and related materials, including the analysis scripts used for primary data analysis, before the main experiment.
+\item The main run based on code commit with a clean-tree check and recording of the actual model IDs used.
+\item Automated analysis of the run tied to that code commit.
+\end{enumerate}
+
+\textbf{Tests.} Rates are compared with Mantel--Haenszel tests stratified by model and scenario, Holm-corrected within each study's confirmatory family.\footnote{Stratified tests help deal with the challenges of some zero counts and different base rates in our data. See Supplement~\ref{sec:S2} for more information.} A hypothesis is \emph{confirmed} only if the result is statistically significant and if the signed magnitude of the overall pooled odds ratio is consistent with the direction registered in the hypothesis. Multiple-comparison adjustments are applied within study and confirmatory family but not across all eleven studies. Tests for equivalence and noninferiority include two one-sided tests with registered margins ($\pm$3 to $\pm$10 points) for each test.
+
+\textbf{Exclusions.} An episode that crashes the harness or fails at the provider only gets one re-run from the registered commit and if that succeeds it is counted, otherwise it is excluded; refusals stay in the data as outcomes. Variations are reported before observing response data. Anything not registered, including all per-model comparisons, is reported as \emph{exploratory}.
+
+\textbf{Seeds and sampling.} Seeds make the test conditions reproducible; the models' responses are not reproducible, so repeated seeds measure model variability. Scripted agents validate the harness and are never used as evidence about models.
+
+\textbf{Re-scoring.} Archived traces from past episodes can be used to create replays in a setting where the model is not called to let others assess past episodes without running new simulations. Replays can only be used for assessment if they exactly replicate the archived data on past episodes. All 47,219 simulated episodes assessed had matching replays. Replay assessment is a common practice in model assessment and other auditor practices~\cite{anthropic2026evals,openai2026coding}.
+
+\textbf{Scale.} The eleven studies used 50,162 LLM episodes, which totaled \$461.34 in API costs for testing and other simulation runs. Deterministic baseline simulations had no cost.
+
+\section{Evaluation}\label{sec:7}
+
+Confirmatory findings are identified by registration number to facilitate readers' access to the relevant code; confirmatory findings are those in which the Mantel-Haenszel test, stratified by scenario and model, yields significant Holm-corrected results within families of related tests. All equivalence and noninferiority tests are TOST tests with those equivalence margins pre-registered. All rate comparisons pool data across models unless otherwise stated; comparisons by model and related tests for heterogeneity are included in supplementary materials. All exploratory findings were identified after study completion, without collection of additional data, and are identified as exploratory.
+
+\subsection{Q1: Is a runtime needed when outcomes can't be observed?}\label{sec:7.1}
+
+Yes, for all models (Fig.~\ref{fig:o2}). Without a model runtime, agents that didn't have access to a runtime were not offered managed idempotency keys and would have to take other steps to avoid double execution. On the development domains, harm ranged from 54\% (GPT-6.1-Sol) to 99\% (Fable 5.1) per model; pooled, it was 70\% for closed models (C1), 78\% for the frontier tier (G1) and 86\% for open-weight models (OC1). With the runtime, harm was reduced to 0\%. This result was found to be consistent on the held-out ledger (53\% vs 0\%, E1) and on Postgres with real replication lag (69\% vs 0\%, T1).
+
+Model capability didn't buy prevention. Contrary to our registered prediction, the frontier tier left \emph{more} lasting damage than the strong tier (64\% vs 32\% final-harm rate). Examination of six models' traces revealed that all six models checked state at the end of the timeout and were unaware of the write during the timeout, leading all six models to attempt the write again. Other variations across models included whether and how often models checked again after retrying; the most proficient model did so in 28\% of episodes.
+
+Which models need a runtime isn't predictable and isn't stable. Opus 5.5 and GPT-6 models showed few vulnerabilities on the held-out ledger in the simulator whereas on Postgres, Opus showed vulnerabilities in 50\% of episodes, and GPT-6-Luna showed vulnerabilities in 67\% of episodes. Response times for Opus and GPT-6 models were similar across simulators. Model service times differed between simulators (\S\ref{sec:7.7}). Runtime protection offers similar safety benefits to different models and service times. Longer service times add cost but not safety risk.
+
+The runtime is \emph{necessary} only when the outcome is unobservable. On single, observable faults (5xx, 429, malformed responses, visible partial failures), capable closed models recovered on their own (0.5\% harm without the runtime vs 0\%; A3, not confirmed), while open-weight models didn't (8\% vs 0\%; OA3). The runtime was most helpful for open-weight models with visible errors.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{../figures/fig2_harm_per_model.pdf}
+\caption{Harm under a hidden write, per model, without a runtime (agents not offered keys) and with it (P6). Top: development domains, 10 models (C1, G1, OC1). Middle: the held-out ledger, 8 models (E1). Bottom: the same ledger on Postgres with real replication lag, 6 models (T1). With the runtime, harm was 0 for every model on every substrate.}\label{fig:o2}
+\end{figure}
+
+\subsection{Q2: Are agents needed for semantic faults?}\label{sec:7.2}
+
+Yes, semantic errors like these cannot be avoided by rule-based methods (Fig.~\ref{fig:o6}a). Semantic errors, such as new task requirements and unavailability of tools and outputs that meet task requirements but are not appropriate, require decisions about how to proceed. In our experiments, these decisions were made by agents. We also compared agent performance with fixed recovery strategies. When compared with a fixed process, LLM agents had success rates of 97\% to 100\% on semantic errors, compared with 7\%, and the workflow caused harmful outcomes in 21\% of semantic errors (A1, A2). Results were similar across all tested LLMs. For comparison, in Stage E, we evaluated two other methods. A general set of recovery rules, such as suggestions to reread and try again with the same key or alternative tools, had a 79\% success rate on semantic errors. Agent performance was higher, at 98\% (E3a). Custom recovery rules designed for specific tasks, including built-in validators and replanning tools and goals, had a 100\% success rate on semantic errors. Agent performance was within 2 percentage points, or noninferior, without custom recovery rules (N1).
+
+The gap is in task-invalid results, which a rule recognizes only if someone anticipated them. On the held-out family, spec-based rules had no task-invalid outputs, and agents caught all of them (100\% vs 67\% overall; E3b). Differences between rule and agent outputs include differences in people's expectations about the tools and prerequisites needed to carry out tasks. Semantic errors affect all models and show that agents outperform rules, but do not enable direct comparisons of models.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{../figures/fig6_held_out.pdf}
+\caption{The held-out accounts-payable family. (a) Success on semantic faults by controller, development domains vs held-out (E2, E3a, E3b, N1). (b) Harm without and with P6 under a hidden write (E1) and on authority tasks (E4).}\label{fig:o6}
+\end{figure*}
+
+\subsection{Q3: Does delegation help beyond the runtime?}\label{sec:7.3}
+
+Yes (Fig.~\ref{fig:o3}). In prior experiment runs, we evaluated each policy using its default runtime. This led to the inability to distinguish the effects of policies from those of runtimes during outcome evaluation. In an evaluation of six policies at two runtime configurations in stage D (720 episodes per cell, 8 models), P6 outperformed full autonomy for tasks requiring human assistance in 65\% of cases under condition D1 and in 65\% of cases under condition D2, where no execution time was provided. Under condition D3, P6 caused less harm than full autonomy, with 4\% compared with 9\%.
+
+Removing P6's components one at a time shows where the effect lives (Fig.~\ref{fig:o3}b). Without the authority gate, harm on authority tasks went from 0\% to 90\% (K1): agents are confident about actions they aren't permitted to take, so nothing else catches them. Routing unresolved outcomes to the agent instead of a human raised harm from 4\% to 21\% (K3). Removing the confidence gate changed nothing (77\% vs 76\% success; equivalent, K2), which is why \S\ref{sec:4.7} drops it.
+
+Routing and runtimes offer equal safety and different levels of autonomy. In the absence of a runtime, P6 had 4\% harm and routed 38 of 100 episodes to a human. In the presence of a runtime, P6 had 4\% harm and did not route any tasks to a human for P6. Figure~\ref{fig:o5} shows the safety and autonomy trade-offs of different policies. P6 completed 34\% of tasks autonomously, the same rate as full autonomy, but with less than half the harm. P4, a static-risk policy, was safe only when most tasks were routed to a human; P4 could complete 13\% of tasks autonomously. P3, a confidence-gating policy, was the most harmful policy tested here, with 34\% harm.
+
+In a second study with a simulated human (Stage B), P6 required less human effort than universal approval: \$5.86 versus \$38.22 per task on simulated human (B2) tasks. P6 had fewer unsuccessful escalations: 1\% versus 79\% of episodes (B2).
+
+Drawbacks of P6 included unrecognized ambiguity: it met 67\% of genuine human needs, against 93\% for universal approval, because the agent couldn't escalate when it lacked awareness of a situation. Giving P6 an \texttt{ask\_human} tool helped on ambiguous tasks (78\% vs 72\% success, E5) without compromising safety (N2).
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{../figures/fig3_stage_d.pdf}
+\caption{(a) Success and harm for each policy, without the runtime (open) and with it (filled); 720 episodes per cell, 8 models (Stage D). (b) P6 with one component removed at a time: the authority gate (K1) and routing (K3) carry the effect; the confidence gate (K2) doesn't.}\label{fig:o3}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{../figures/fig5_autonomy.pdf}
+\caption{Termination rates by policy (Stage D, semantic runtime). P6 matches full autonomy's success rate (34\% vs 33\%) while cutting harm from 9\% to 4\%; static-risk approval (P4) buys its safety by sending most tasks to a human.}\label{fig:o5}
+\end{figure*}
+
+\subsection{Q4: Do contracts fix the keys hazard?}\label{sec:7.4}
+
+The keys risk is our most unexpected result. Offering idempotency keys with a hidden partial commit raised risk from 1\% to 30\% (C3) because agents misunderstood the key's description as guaranteeing ``at most once''; a revised key description lowered risk to 3\% (C5). Other contract and repair experiments with idempotency keys (Fig.~\ref{fig:o4}, \S\ref{sec:3.3}) also suggest that the keys risk arises from a mismatch between the key's capabilities and description and that contract and repair mitigations can reduce keys risk under a hidden partial commit much as completely removing keys can (K2, R1, N4). The keys risk was eliminated in all these experiments under our contract-based runtime. Limitations of our evaluations include large differences in keys risk among models and a reversal of keys risk for one model, which is why we highlight enforced protections throughout this paper. Even our lowest-risk experiment condition had some remaining risk from writes not keyed by participants but protected by our runtime, which keys all writes.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{../figures/fig4_keys.pdf}
+\caption{Harm under a hidden partial commit, without a runtime. (a) Contract study: key scope $\times$ key description (K1, K2). An atomic scope with contract wording reversed the effect (19\%; N2 not shown). (b) Repair study, designed afterwards from that result and pre-registered: contract-declared repair under an atomic scope (R1, R2), non-inferior to offering no keys (N4). Orange: arms where the description leaves the agent a harmful reading. 7 models, 630 episodes per arm.}\label{fig:o4}
+\end{figure*}
+
+\subsection{Q5: Does the system design hold on workloads it wasn't designed for?}\label{sec:7.5}
+
+Yes. The accounts-payable family protocol was developed after other baseline protocols, including Stage E. Each accounts-payable family seed generates a new task instance (Fig.~\ref{fig:o6}). Under hidden-write vulnerabilities, 53\% of task instances in the unkeyed accounts-payable family experienced unintentional negative impacts, and none experienced unintentional negative impacts when security protections were applied at run time (E1). Twelve percent of fully autonomous task instances and zero percent of P6 task instances experienced unintentional negative impacts on authority tasks (E4). Agents successfully completed all semantic-error task instances, while the established process and 67\% of accounts-payable family specification rule sets were unsuccessful with semantic-error task instances (E2 and E3b).
+
+Data collected from one held-out family offers some external validity, albeit limited. Its semantic faults were at the ceiling (nearly 100\% success) for every model, so it shows that the design transfers but not by how much. The real-services replication (\S\ref{sec:7.7}) uses the same family, so it is also a second, independent check of the held-out result.
+
+\subsection{Q6: How much overhead should be expected when using a runtime?}\label{sec:7.6}
+
+Under normal conditions, the runtime adds a single read to each write to check a postcondition to verify the state. Additional round-trip time is 7 milliseconds in nearby locations and 150 milliseconds in distant locations (intercontinental). This time can be compared to median model turn times of multiple seconds (exploratory study; Table~\ref{tab:o2} and cost model in supplement).
+
+Under fault conditions, the runtime added 6-12 extra requests and 7.5-10 extra seconds of polling time, again depending on the lag of the replica database relative to the primary database. Polling time is more costly than extra requests at all measured latencies. Agent benefits are the opposite. For LLM agents interacting with Postgres, the runtime decreased the number of model calls per episode from 7.5 to 3.6 with a hidden write and from 5.9 to 3.6 with a partial commit, and the total number of tokens used by 51\% and 28\%, as the agent no longer needs to use turns to troubleshoot irrecoverable errors. These are real cost savings, especially at scale.
+
+In simulations, the partial-effects fast path reduced calls to each model by 20\%. Total run time with the partial-effects fast path did not differ much from the hidden write fast path but increased total run time with the partial commit fast path by about 6 seconds because the agent polled for a record that is not created with the partial commit fast path. The partial-effects fast path avoids this polling. Recovery from a partial commit with a different type of scripted agent took 3.2 seconds instead of 13.3 seconds (including 3 seconds of client timeout) with no hard failures (Table~\ref{tab:o2}). We have not tried recovery from partial commit with LLM agents.
+
+\subsection{Real Services vs the Simulator}\label{sec:7.7}
+
+A simulator can't accurately simulate behavior of services in remote data centers with variable network connectivity, including behavior that might seem random. Can simulator results be generalized to other services? We evaluated the held-out family on Postgres 16 using experiments with real two-transaction partial commits and idempotency keys stored as rows, reads through streaming replicas with real replication lag, client-side timeouts on a wall clock (6 models; ran in parallel with the simulator using the same random seeds), and found that all hypotheses about runtime and key behavior were supported. There were no data-damaging events in either of two fault scenarios (T1, T2; 0 of 360) and no more data damage than in the simulator (N1). Key risks existed (27\% with keys, 19\% without, T3). The live services accurately reproduced results from the simulator in four of five experiments, including both partial-commit experiments (27\% vs. 27\%, 19\% vs. 18\%).
+
+In the fifth arm (hidden write without a key), the simulated service suffered less damage than the Postgres system, 46\% and 69\%, respectively. Observational evidence suggests that timing, rather than behavioral differences, explains the difference (exploratory). In a hidden write scenario with client retries, it is possible to complete a duplicate hidden write only if the retry request reaches the service before the hidden write response is visible to the client. The simulated service introduced a 1.8-second delay before processing requests, limiting the time window for duplicate hidden writes to about 4.2 seconds from 6 seconds. When client retries occurred 4.2 to 6 seconds after the initial request timed out, they caused no damage in the simulated system (0 out of 39) and damage in the Postgres system (36 out of 36).
+
+Figure~\ref{fig:o7} shows additional findings. We use data from model retries in Postgres to calculate the likelihood of harm from model retries in various windows. Those predictions agree with observed results (180 out of 180) and show a 49\% predicted likelihood of harm for the 4.2s window used in the simulator, similar to the observed likelihood of 46\%. General patterns include likelihoods of harm without a runtime ranging from 8\% for a 1s retry window to at least 80\% for an 8s retry window, and similarly sharp changes in likelihoods of harm for individual models at particular windows that correspond to typical decision times for those models. The likelihood of harm for the runtime is 0\% in all retry windows because the runtime checks for hidden writes before retrying; longer retry windows cost it time, not safety. Wide-area network latencies were not required to support our other claims, as wide-area network latencies influence where agents without a runtime fall on this graph and how often they are harmed, but not the runtime's outcomes.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{../figures/fig7_sensitivity.pdf}
+\caption{Harm without a runtime under a hidden write, as a function of the effective window in which a retry can still duplicate it (visibility lag minus service latency). Lines: estimated from each model's retry timing on the real stack; markers: observed in the simulator (4.2 s) and on Postgres (6 s). The runtime is flat at 0. (Exploratory.)}\label{fig:o7}
+\end{figure*}
+
+\section{Related work}\label{sec:8}
+
+\textbf{Exactly-once execution and idempotency.} Atomicity, logging and recovery are the foundations of transaction processing~\cite{gray1993transaction}, and remote procedure calls have had to choose between at-least-once and at-most-once semantics since their earliest implementations~\cite{birrell1984rpc}. RIFL provides exactly-once remote call semantics layered over an at-least-once system by logging remote call return values and using them whenever a call is repeated~\cite{lee2015rifl}. We call this type of remote call an \texttt{atomic} key scope in the context of our contract. Other payment API clients use idempotency keys for similar purposes~\cite{stripe}. An IETF draft proposes a standard for a key header used to enforce idempotency~\cite{jena2025idempotency}. Using idempotency keys requires coordination and engineering expertise on the part of the API client. Our clients are models that learn the scope of a key from the key description. Hazards related to keys (\S\ref{sec:3.3}) arise when the service key scope is smaller than the key description. The contract provides information about the service key scope to clients and the runtime system.
+
+\textbf{Durable workflows and other approaches.} Sagas divide a transaction into steps and include compensation rules~\cite{garciamolina1987sagas}. Durable workflow systems include features to ensure that all steps in a program are performed exactly once, despite failures, using approaches such as intent-locked sessions in Olive~\cite{setty2016olive}, transactional serverless workflows in Beldi~\cite{zhang2020beldi}, Azure Durable Functions~\cite{burckhardt2021durable}, log-optimal protocols in Halfmoon~\cite{qi2023halfmoon}, distributed speculative execution to reduce durability costs~\cite{li2026dse}, and other systems or platforms, including Temporal~\cite{temporal}. There are approaches for safely retrying non-idempotent operations~\cite{xie2026incr}, and effect analysis is not novel. All these approaches rely on the workflow being deterministic and having a replay capability. Agents are not deterministic programs because they select next steps dynamically, based on observations. We apply these approaches at the boundary between an agent and its tools: the runtime implements a desired behavior for interactions with the tools (key management, mediation, compensation, inspection) but leaves next steps to the agent. The inspect step of a contract interaction plays a similar role to recorded intent in other systems by enabling access to information about previous steps.
+
+\textbf{Consistency with replication delays.} A response, or its absence, isn't an authoritative account of when an effect happened~\cite{lamport1978clocks}. A hidden write is, from the agent's side, a violation of read-your-writes, one of the session guarantees defined for weakly consistent replicated stores~\cite{terry1994session}. The runtime restores consistency for the agent by verifying a write's postcondition before reporting success. Real-world read staleness in weakly consistent replicated data stores can be modeled using probabilistically bounded staleness~\cite{bailis2012pbs}. Section 7.7 includes a sensitivity analysis on a related topic: the frequency with which users take action on stale data. Techniques related to in-transit requests in \S\ref{sec:4.3} include leases~\cite{gray1989leases} and fencing tokens~\cite{kleppmann2017ddia}.
+
+\textbf{Semantic checking.} Checkers derived from a system's tests can detect silent failures in production~\cite{lou2025t2c}, and static analysis can find data-integrity violations across microservices~\cite{ferreira2026aletheia}. This paper describes new postconditions and invariants. Our main contributions involve the use of these checkers: New places where semantic checks can be applied include interfaces between an agent and other tools used by the agent. These contracts are checked before the agent sees a result from a tool invoked by an agent.
+
+\textbf{Systems for agents.} Murakkab is a framework for building agent systems that choose models and other components to improve the performance and reduce the cost of services given service-level objectives~\cite{chaudhry2026murakkab}. Studies comparing different architectures for building agent systems find differences in reliability but not accuracy among agent systems built with different architectures~\cite{kim2025scaling}. The current paper uses a similar approach to study a different issue: responsibility for and correctness of a system's side effects.
+
+\textbf{Tool interfaces for agents.} Previous work frames tool use by language models as the use of free-form text inputs to function calls~\cite{schick2023toolformer,yao2023react}. The Model Context Protocol defines four tool interface annotations (read-only, destructive, idempotent, and open-world) that offer possible advantages to clients but are not to be relied upon~\cite{mcp}. Tool interface annotations cannot describe many aspects of tool use, such as key scope, partial effects, visibility or recovery operations (\S\ref{sec:3.2}). Our contract formalism offers a complementary enhancement to tool interface annotations by specifying tool interface requirements and deriving descriptions and annotations. Language models respond sensitively to prompt changes in ways that differ across models~\cite{sclar2024formatting}. Our description results (\S\ref{sec:3.3}) are one example of this sensitivity specific to tool interface descriptions and one reason we chose to require rather than describe contract aspects.
+
+\textbf{Agent benchmarks and safety.} Benchmarks for agents in stateful environments measure task success: WebArena on websites~\cite{zhou2024webarena}, $\tau$-bench on tool-agent-user interaction under domain policies~\cite{yao2025taubench}, and AppWorld, whose state-based checks also catch collateral damage~\cite{trivedi2024appworld}. ToolEmu uses a natural-language model simulation to identify dangerous agent behaviors~\cite{ruan2024toolemu}. Reports from model developers include information on unintended agent behaviors observed during testing and other activities~\cite{anthropic2026unintended} and suggestions for monitoring long-running trajectories~\cite{openai2026longhorizon}.Our authority gate and contracts offer additional safeguards for individual actions in addition to monitoring agent behaviors. Other benchmarks and simulations involve actual tools. We inject several service execution faults, such as timeouts and lack of information, in actual and simulated services and test a system feature in preregistered studies.
+
+\textbf{Deferral and human oversight.} Earlier research on deferring to humans for decision making includes work on accept/reject trade-offs~\cite{chow1970reject}, mixed-initiative systems~\cite{horvitz1999principles,horvitz1999uncertainty}, adjustable autonomy~\cite{scerri2002adjustable}, selective classification~\cite{geifman2017selective}, and learning to defer~\cite{madras2018defer}. Conformal prediction techniques are used in the KnowNo system to implement deferral mechanisms for LLM planning~\cite{ren2023knowno}. Other research on deferral has focused on uncertainty about which actions to take, which is different from authority uncertainty, in our conceptual framework, uncertainty about past events can be resolved by the runtime without human help, but authority cannot be established (\S\ref{sec:4.7}). Confidence statements from LLMs are generally overly confident~\cite{xiong2024uncertainty} but may provide some information about knowledge~\cite{kadavath2022know}; experiments in this paper find little information about what models are permitted to do in LLM confidence statements. In auto mode for Claude Code, Anthropic prevents irreversible and harmful actions through classification rather than asking the user, who agrees to such requests almost every time~\cite{anthropic2026automode}; this addresses the same P6 challenges related to human attention but uses a classification model rather than rules to implement deferral. Cedar and other authorization languages can express the same delegation rules we use in our authority gate~\cite{cutler2024cedar}. Other work exists on systems for authenticated delegation of authority to agents~\cite{south2025delegation}.
+
+\section{Future Work, Limitations, Discussion}\label{sec:9}
+
+\textbf{Humans are simulated.} Principals and approvers answer questions from ground truth but with error and fatigue rates that are not known for real humans. Costs and time for humans are modeled and reported as such. Human-related findings, including the finding in P6 about the costs of using humans versus universal approval, would need to be studied with real reviewers to be reported without the \emph{modelled} label.
+
+\textbf{Faults are injected.} We control when and where faults occur in calls. Benefits of fault injection include the ability to run similar tests under differing conditions and policies. Limitations include a lack of data on how often these faults occur in deployment and whether real failures cluster in ways the fault injection process does not portray. Advantages of actual-system testing include the ability to inject faults into a real database and network path while controlling when faults occur during testing.
+
+\textbf{One domain on real services, run locally.} Another replicated domain measures one machine's actual replication lag in an out-of-sample Postgres ledger. We did not evaluate wide-area network latencies. Section 7.7 provides a sensitivity analysis showing effects of participant network delay on agent-side harm but not the replicated system's output. Other domains and real infrastructures remain to be replicated.
+
+\textbf{Workload scope.} Six and one held-out family are a small set of work domains. Semantic errors for the held-out family reached a maximum for all models, suggesting that the allocation can be applied to new work domains but not how broadly it can be applied.
+
+\textbf{Zero harm is observed, but not proven.} No harm was observed in the faults and services we tested. This is an observation about our experiments and not a general assertion that other faults and services cannot cause harm. Formal analysis of the runtime and service safety guarantees, analogous to a related analysis of crash consistency~\cite{leblanc2025power}, is planned for future work. The runtime service guarantees depend on adherence to service contracts by other services, which may include services with \texttt{compensate} and \texttt{inspect} operations that return a response before completing earlier try operations and undo the effects of earlier try operations.
+
+\textbf{The fast path has the lowest level of validation.} It was measured with scripted agents on the real ledger, not with LLM agents, and its in-progress guarantee was tested live but not under load. Requests delayed in the network past the client's timeout aren't covered; we describe the standard remedies and argue they should be applied in proportion to consequence (\S\ref{sec:4.3}), but we haven't implemented them.
+
+\textbf{Descriptions were in English.} All tool and task instructions were in English. Outcomes influenced by agents' reading, including key model-generated descriptions (\S\ref{sec:3.3}), could differ by language and translation. Other claims about model behavior were not language-specific.
+
+\textbf{Agents and models.} Agents do not retain information from one episode to the next (\S\ref{sec:4.8}). We cannot make inferences about how agents that retain information from one episode to the next might behave, such as by moving more cautiously or placing greater weight on feedback. Observations described here apply to particular versions of models. Model versions change quickly, and differences among versions described in this paper suggest that our conclusions should not be generalized to other versions of the same model. Verbal descriptions of model confidence were included in episode traces (\S\ref{sec:4.7}). Other ways of reporting model uncertainty might be more accurate but would similarly only allow evaluation of whether a conclusion is true or false, not whether it is permitted.
+
+\textbf{Unrecognized ambiguity.} P6's main weakness is unobserved task uncertainty. P6 achieves 67\% of genuine human needs and 93\% of possible rewards because it cannot request information about the unknown unknowns of the agent. Handling unobserved uncertainty is an open research question, that is, a topic of future research.
+
+\textbf{Statistics.} Corrections for multiple hypothesis tests within each study were applied to tests in each study, but not across the eleven studies. Tests of model and family differences and timing and confidence-level assumptions were exploratory and noted as such.
+
+\section{Conclusion}\label{sec:10}
+
+LLM agents are a new kind of distributed system user. LLM agents use information provided at query time to figure out what guarantees hold in the distributed system and act accordingly. Silent failures and other errors that provide stale information to LLM agents, including skilled LLM agents, cause the agents to act incorrectly. Testing 11 agents showed that errors caused by silent failures were widespread and not reduced by skill level, whether among models or different deployments of the same model. Attempts to change inputs to LLM agents had limited success.
+
+What worked for every model was a clear contract enforced outside the model. Declaring what each tool guarantees under failure (its key scope, partial effects, visibility, and the operations that let a runtime look up, verify, inspect and undo an attempt) lets a runtime between the agent and its tools resolve what the agent can't observe. Keeping authority in a deterministic gate, and routing only what remains to a human, completes the allocation: the runtime owns execution uncertainty, the agent owns semantic judgement, the gate owns permission, and people own the consequential outcomes no one else can resolve. In eleven pre-registered studies, on simulated services, a held-out workload and Postgres, that allocation eliminated harm from unobservable faults at the cost of one round trip when nothing fails.
+
+As agents take on more consequential work, the guarantees they rely on should not depend on how well a model reads a paragraph. They should be declared, enforced, and checked outside the model.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\clearpage
+\onecolumn
+\appendix
+\renewcommand{\thesection}{S\arabic{section}}
+\setcounter{figure}{0}\renewcommand{\thefigure}{S\arabic{figure}}
+\setcounter{table}{0}\renewcommand{\thetable}{S\arabic{table}}
+\section*{Supplementary Material}
+
+\emph{Sections, figures, and tables in the supplement are numbered S1, S2, etc. They are cited in the paper as Supplement~\ref{sec:S1}, Figure~\ref{fig:oS1}, Table~\ref{tab:oS1}, and so on.}
+
+\textbf{Contents.} S1 Development timeline and bug fixes $\cdot$ S2 Choice of statistical tests $\cdot$ S3 Results for different models and heterogeneity specifications $\cdot$ S4 Human hours and costs model $\cdot$ S5 System cost model
+
+\section{Development timeline and bug fixes}\label{sec:S1}
+
+The harness and studies reported in this paper were created over 19 days from October 11 to October 29, 2026, including a period from October 19 to October 25, 2026, with no commits or runs. Similar methods were applied to all studies and helped reduce errors reported in other studies:
+
+\begin{enumerate}
+\item Run Pilot: A small pilot study was run before each full experiment in order to identify any issues with the study design (saving time and money - some runs took many hours). Pilot study findings were used to fix issues, which were then tested on fresh seeds before registering the full study.
+\item Commit Registration: The hypotheses and testing and analysis code were anchored to a specific commit prior to conducting the primary analysis and used as such from a branch derived from that commit for the registered replication.
+\item Retry and Report Errors: Episodes that crashed the harness or failed at the provider were retested using the registered commit and reported only if they experienced another such outage. A sensitivity analysis was performed on episodes that needed a fix, and both fixed and unfixed episodes were reported.
+\item Verify: A harness fix had to leave every other episode unchanged. Replay tests that included the harness fix and no calls to model code verified other behaviors of the harness.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figures/figA1_timeline.pdf}
+\caption{Studies (begin dates of main runs) and developmental issues identified, shown with the same number codes as in Table~\ref{tab:oS1} and dates of issue identification.}\label{fig:oS1}
+\end{figure}
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.035\textwidth}>{\raggedright\arraybackslash}p{0.035\textwidth}>{\raggedright\arraybackslash}p{0.098\textwidth}>{\raggedright\arraybackslash}p{0.272\textwidth}>{\raggedright\arraybackslash}p{0.075\textwidth}>{\raggedright\arraybackslash}p{0.158\textwidth}>{\raggedright\arraybackslash}p{0.151\textwidth}}
+\caption{Development issues by date. ``Before registration'' means the issue was resolved in a pilot or other study during development prior to committing the study's design and analysis.}\label{tab:oS1} \\
+\toprule
+\textbf{\#} & \textbf{Date} & \textbf{Where} & \textbf{Issue} & \textbf{How it was found} & \textbf{Fix} & \textbf{Effect on results} \\
+\midrule\endfirsthead
+\caption[]{(continued)} \\
+\toprule
+\textbf{\#} & \textbf{Date} & \textbf{Where} & \textbf{Issue} & \textbf{How it was found} & \textbf{Fix} & \textbf{Effect on results} \\
+\midrule\endhead
+1 & Oct 11 & First live run & Scenario input error: \texttt{scheduling} didn't recognize attendee email addresses, and \texttt{travel} only accepted the city code \texttt{NYC} & Validity review of the first LLM run & Inputs accepted in any reasonable form; regression tests & 60 invalid episodes archived and excluded; before any registration \\
+2 & Oct 12 & Evaluator & End-state harm alone couldn't differentiate between an agent that double-booked and then cancelled from one that booked once & Trace review & Harm split into end-state and self-corrected; earlier runs re-scored from traces & Metric defined before the first registration \\
+3 & Oct 13 & Stage A pilot & \texttt{devops} task-invalid result wasn't detectable by careful reading, so all four models were harmed & Pilot inspection & Release listings show each release's environment; prompt asks for the most recent release healthy in production & Before registration; re-checked on 8 episodes \\
+4 & Oct 13 & Stage A and C runs & Malformed tool arguments (a \texttt{files} argument sent as a string) crashed the harness instead of returning an error to the model & Crash during the run (1 episode) & Malformed arguments become an ``invalid arguments'' error, as a real API returns a 400 & 1 episode re-run from the registered commit; succeeded. All 2,680 confirmation episodes replay identically under the fix \\
+5 & Oct 13 & Stage C trace analysis & ``Verified after retry'' counted reads after \emph{any} second write, which miscounts \texttt{devops}, where the rollback is also a write & Review of the exploratory measure & Re-keyed on the retry of the faulted tool & Exploratory measure only; corrected before reporting \\
+6 & Oct 14 & Open replications & An empty meeting start time raised the harness's own error type, which fix 4 didn't catch & Crash during the run (1 episode) & Extended fix 4 to the harness's own request errors & 1 episode re-run; succeeded; replay unchanged \\
+7 & Oct 14 & Open replications & Provider capacity outage (45 episodes) and runaway outputs (6) & Run status & None needed & Re-run under the exclusion rule; all succeeded \\
+8 & Oct 14 & Stage B pilot & No channel for an agent to ask its principal: agents stopped to ask in their reply and the episode ended, so even the oracle failed ambiguous tasks & Pilot inspection & A principal-reply channel, off by default so earlier episodes and keys are unchanged & Before registration; re-checked on 160 episodes \\
+9 & Oct 14 & Stage B pilot & \texttt{platform/ambiguous} wasn't ambiguous: the hidden intent was every model's default choice & Pilot inspection (oracle succeeded while meeting no human needs) & Hidden intent changed so the conventional choice is wrong & Before registration \\
+10 & Oct 16 & Stage B run & System sleep stalled the run at 6,552 of 7,920 episodes & Run status & Resumed from the registered commit under \texttt{caffeinate} & Completed episodes kept; no design change \\
+11 & Oct 16 & Stage B run & A malformed request routed to the simulated approver crashed it (the approval path wasn't covered by fixes 4 and 6) & Crash during the run (1 episode) & The approver rejects a request too malformed to judge & 1 episode crashed again on re-run and was excluded (the only exclusion across the first six studies); every verdict identical with it re-run under the fix \\
+12 & Oct 26 & Runner & Provider SDKs retried silently, with a 600 s timeout, so retries and timeouts weren't counted & Review before the contract study & SDK retries off; the harness retries and counts them; run manifests and status files & Accounting only; outcomes unaffected. Earlier runs lack retry counts \\
+13 & Oct 26 & Contract pilot & Traces didn't record the tool schemas the agent saw, so the description manipulation couldn't be audited & Pilot inspection & Traces record the schemas and contract shown & Logging only; before registration \\
+14 & Oct 26 & Contract study & Provider withdrew a model (DeepSeek-V4-Flash-0731) before the run & All 560 of its episodes failed before the first model call & None possible; a replacement model run as a separate, exploratory supplement & 560 episodes excluded and counted; analysis on 7 of 8 models, as the exclusion rule requires \\
+15 & Oct 27 & Repair pilot & \texttt{platform} had no harm in any arm, which would bias the pooled non-inferiority test (N4) toward success & Pilot inspection & \texttt{platform} dropped; seeds rebalanced to keep 90 episodes per model and arm & Before registration \\
+16 & Oct 27 & Stage E pilot & \texttt{ledger/ambiguous} wasn't genuinely ambiguous & Pilot inspection & Prompt and hidden intent changed & Before registration; re-checked on 40 episodes \\
+17 & Oct 27 & Stage E run & A non-numeric payment amount raised an error in the authority gate instead of a tool error (1 of 1,440 ledger episodes) & Crash during the run & Amount parsing fixed after the run & Re-run succeeded; nothing excluded; the fix can't change the run's results \\
+18 & Oct 28 & Re-scoring & Episodes with a principal reply didn't replay (1,216 of Stage D's 1,217 replay mismatches) & Replay of all studies & Replay rebuilt turn by turn, with principal replies & All 47,219 analysed simulated episodes now replay exactly \\
+19 & Oct 28 & Real-services pilot & Two worker threads imported the HTTP client at the same moment (2 harness errors) & Pilot errors & Imported when the module loads & Before registration; both episodes succeeded on re-run \\
+20 & Oct 28 & Real-services pilot & Design defect: every read went through the lagging replica, so a real partial commit was also a hidden write, unlike in the simulator & Pilot inspection (agents without keys paid twice in 5 of 6 episodes) & A second, fast replica as the normal read path; the lagging one only from the call carrying the visibility fault; a lag-only arm added & Before registration; re-checked on 42 episodes \\
+21 & Oct 28 & Real-services stack & Smaller defects found while building it: opt-in scenarios listed with the others, a division by zero in the analysis on real-only pilots, proxy logs mixing runs, and database setup counted in episode durations & Development and pilot checks & Each fixed & Before registration \\
+22 & Oct 28 & Simulator & The simulated payment's 1.8 s latency is charged before the call executes, shortening the window in which a retry duplicates a hidden write from 6 s to about 4.2 s & Comparing real and simulated outcomes & Not changed: the simulator is part of registered studies. Documented, and generalized as the sensitivity curve (Fig.~\ref{fig:o7}) & Explains the one arm where the substrates differed (\S\ref{sec:7.7}) \\
+23 & Oct 29 & Cost benchmark & The runtime's inspection requests were counted as the agent's & Review of the benchmark's attribution & Inspection counted as a runtime hook & Exploratory measure; corrected before reporting \\
+24 & Oct 29 & Runtime design & A hidden partial commit cost 10 s of polling for a completed record that can never appear & The cost model (Q6) & The partial-effects fast path (\S\ref{sec:4.3}), off by default & Registered studies unchanged; all 47,219 episodes replay identically with it off \\
+\bottomrule
+\end{longtable}}
+
+\textbf{Summary.}
+
+\begin{itemize}
+\item \textbf{24 issues}: 6 harness defects, 9 scenario or design validity issues, 6 in measurement or analysis, and 3 provider or operational. (Issue 21 groups four small defects.)
+\item \textbf{12 were caught before the affected study was registered,} most by pilots whose outcomes were inspected only for defects. Pilots caught six scenario or design issues (3, 8, 9, 15, 16, 20) that would otherwise have reached a registered study.
+\item \textbf{4 harness defects were found during registered runs} (4, 6, 11, 17), each in a single episode. Each was handled under the exclusion rule, and each fix was verified by replay to leave every other episode unchanged. Across eleven studies, one episode was excluded for a harness defect, and 560 because a provider withdrew a model.
+\item \textbf{The late design issues (20, 22, 24) came from running on real services.} The simulator matched with Postgres on most measures, and these issues would have stayed hidden without the replication.
+\end{itemize}
+
+\section{Choice of statistical tests}\label{sec:S2}
+
+We chose these tests because of the characteristics of our data. Outcomes are binary, and base rates differ widely across models and scenarios, so pooling counts across strata can hide or reverse a meaningful conclusion. The Mantel--Haenszel test compares arms within each stratum and combines the strata, without fitting a parameter per stratum. Many of our cells are small and many contain no events (the runtime's arm is often 0 of 40), which makes logistic and mixed-effects models unstable or impossible to fit; the stratified test stays valid, and a pooled odds ratio of infinity simply means one arm had no events. Holm's procedure controls the probability of any false confirmation within a family, without assuming the tests are independent, which ours aren't since they share arms. We wanted to draw conclusions from individual tests that would not be called into question by other conclusions from the set of tests and used a correction that controls the probability of any false confirmation.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figures/figS2_tests.pdf}
+\caption{Why the analysis uses stratified Mantel--Haenszel tests with Holm correction: a visual depiction. (a) Harm under a hidden write without the runtime ranges from 54\% to 99\% across models (blue: closed; orange: open-weight; 95\% Wilson intervals), and every model's runtime arm has 0 events in 40 (Q1, real data). (b) Illustrative numbers, not study data: arm A has the higher rate within each model, but because the arms are split unevenly between a low-rate and a high-rate model, pooling the counts reverses the comparison. Comparing within each model and then combining, as Mantel--Haenszel does, avoids this. (c) For one model (GPT-6.1-Sol, 65/120 vs 0/40), the logistic log-likelihood keeps rising toward a limit it never reaches, so the log odds ratio has no finite estimate; the stratified test still gives a p-value. (d) The Stage D confirmatory family (real data): p-values in increasing order against Holm's thresholds. D1--D5 are confirmed; D6 (p = 0.53) exceeds its threshold, so testing stops there. p-values reported as 0 are below 10$^{-16}$ and are drawn at that floor.}\label{fig:oS2}
+\end{figure}
+
+\section{Results for different models and heterogeneity specifications}\label{sec:S3}
+
+Text in this section is carried over from the generated project report \texttt{docs/heterogeneity/heterogeneity.md}. Tables are generated data.
+
+Generated by \texttt{analysis/heterogeneity.py} from the committed runs. \textbf{Not pre-registered.} The confirmatory tests pooled models; this asks how much each effect varies by model.
+
+Per model: arm A and arm B rates, and the risk difference A $-$ B in percentage points with a Newcombe 95\% interval. Heterogeneity: Cochran's Q and I$^2$ on the per-model risk differences, and the Breslow--Day test for equal odds ratios. \emph{Direction} counts models with A $-$ B above / equal to / below zero (above is the registered prediction; equal is usually 0\% in both arms); \emph{CI > 0} counts those whose interval excludes zero.
+
+\begin{center}
+\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{../../docs/heterogeneity/forest.png}
+\end{center}
+
+Each comparison is labelled with the evaluation question in \S\ref{sec:7} of the paper that it answers:
+
+\begin{itemize}
+\item \textbf{Q1:} Is a runtime needed when outcomes can't be observed? (\S\ref{sec:7.1})
+\item \textbf{Q2:} Are agents needed for semantic faults? (\S\ref{sec:7.2})
+\item \textbf{Q3:} Does delegation help beyond the runtime? (\S\ref{sec:7.3})
+\item \textbf{Q4:} Do contracts fix the keys hazard? (\S\ref{sec:7.4})
+\item \textbf{Q5:} Does the system design hold on workloads it wasn't designed for? (\S\ref{sec:7.5})
+\item \textbf{Q6:} How much overhead should be expected when using a runtime? (\S\ref{sec:7.6}). No per-model comparison; see S5.
+\end{itemize}
+
+\subsection*{Summary}
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.290\textwidth}>{\raggedright\arraybackslash}p{0.045\textwidth}>{\raggedright\arraybackslash}p{0.045\textwidth}>{\raggedright\arraybackslash}p{0.045\textwidth}>{\raggedright\arraybackslash}p{0.044\textwidth}>{\raggedright\arraybackslash}p{0.068\textwidth}>{\raggedright\arraybackslash}p{0.037\textwidth}>{\raggedright\arraybackslash}p{0.035\textwidth}>{\raggedright\arraybackslash}p{0.060\textwidth}>{\raggedright\arraybackslash}p{0.082\textwidth}}
+
+\toprule
+\textbf{Claim} & \textbf{Source} & \textbf{Models} & \textbf{Pooled A $-$ B} & \textbf{Range across models} & \textbf{Direction} & \textbf{CI > 0} & \textbf{I$^2$} & \textbf{Q p} & \textbf{Breslow--Day p} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Claim} & \textbf{Source} & \textbf{Models} & \textbf{Pooled A $-$ B} & \textbf{Range across models} & \textbf{Direction} & \textbf{CI > 0} & \textbf{I$^2$} & \textbf{Q p} & \textbf{Breslow--Day p} \\
+\midrule\endhead
+Q1: Hidden write, development domains: harm without keys $-$ with the runtime (P6) & C1, G1, OC1 & 10 & +78 & +54 to +99 & 10 / 0 / 0 & 10/10 & 94\% & 4.8e-28 & 0.83 \\
+Q2: Semantic faults: agent success $-$ fixed workflow & A1, OA1 & 8 & +91 & +86 to +93 & 8 / 0 / 0 & 8/8 & 65\% & 0.0061 & n/a (shared baseline) \\
+Q2-rules: Semantic faults, development domains: agent success $-$ general recovery rules & E3a & 8 & +19 & +15 to +21 & 8 / 0 / 0 & 8/8 & 61\% & 0.011 & n/a (shared baseline) \\
+Q3-success: Human-needed variants, semantic runtime: success with P6 $-$ P1 & D1 & 8 & +46 & +27 to +55 & 8 / 0 / 0 & 8/8 & 17\% & 0.3 & 0.39 \\
+Q3-harm: Semantic runtime: harm with P1 $-$ P6 & D3 & 8 & +5 & -3 to +20 & 6 / 0 / 2 & 3/8 & 67\% & 0.0037 & 0.044 \\
+Q4-keys: Hidden partial commit: harm with keys $-$ without & C3, G4, OC3 & 10 & +15 & -1 to +56 & 9 / 0 / 1 & 6/10 & 93\% & 1.8e-23 & 3.1e-10 \\
+Q4-wording: Hidden partial commit: harm with 'at most once' $-$ contract-generated wording & K2 & 7 & +13 & -13 to +52 & 6 / 0 / 1 & 4/7 & 94\% & 4.8e-21 & 1.8e-13 \\
+Q4-repair: Hidden partial commit, atomic scope: harm without $-$ with repair primitives & R1 & 7 & +13 & +0 to +46 & 4 / 3 / 0 & 3/7 & 94\% & 2.1e-20 & 0.038 \\
+Q5-hidden-write: Hidden write, held-out accounts-payable family: harm without keys $-$ with the runtime (P6) & E1 & 8 & +53 & +0 to +100 & 6 / 2 / 0 & 5/8 & 99\% & 2.2e-246 & 7.8e-08 \\
+Q5-authority: Authority tasks, held-out accounts-payable family: harm with P1 $-$ P6 & E4 & 8 & +12 & +0 to +90 & 2 / 6 / 0 & 1/8 & 94\% & 9.3e-23 & 0.036 \\
+\bottomrule
+\end{longtable}}
+
+\subsection*{Per model}
+
+\subsubsection*{Q1: Is a runtime needed when outcomes can't be observed? (\S\ref{sec:7.1})}
+
+\paragraph*{Q1: Hidden write, development domains: harm without keys $-$ with the runtime (P6)}
+
+Registered source: C1, G1, OC1.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.324\textwidth}>{\raggedright\arraybackslash}p{0.071\textwidth}>{\raggedright\arraybackslash}p{0.151\textwidth}>{\raggedright\arraybackslash}p{0.111\textwidth}>{\raggedright\arraybackslash}p{0.213\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 (confirm) & closed & 92/120 (77\%) & 0/40 (0\%) & +77 (+65 to +83) \\
+claude-opus-5-5 (confirm) & closed & 89/120 (74\%) & 0/40 (0\%) & +74 (+62 to +81) \\
+gpt-6-luna (confirm) & closed & 90/120 (75\%) & 0/40 (0\%) & +75 (+63 to +82) \\
+gpt-6.1-sol (confirm) & closed & 65/120 (54\%) & 0/40 (0\%) & +54 (+42 to +63) \\
+claude-fable-5-1 (stage-c) & closed & 119/120 (99\%) & 0/40 (0\%) & +99 (+90 to +100) \\
+gpt-6-astra (stage-c) & closed & 69/120 (57\%) & 0/40 (0\%) & +57 (+45 to +66) \\
+deepseek-v4-flash-0731 (open-confirm) & open & 97/120 (81\%) & 0/40 (0\%) & +81 (+69 to +87) \\
+deepseek-v4-pro-0813 (open-confirm) & open & 107/120 (89\%) & 0/40 (0\%) & +89 (+78 to +94) \\
+glm-5.3 (open-confirm) & open & 98/120 (82\%) & 0/40 (0\%) & +82 (+70 to +88) \\
+glm-5.3-flash (open-confirm) & open & 113/120 (94\%) & 0/40 (0\%) & +94 (+84 to +97) \\
+\bottomrule
+\end{longtable}}
+
+\subsubsection*{Q2: Are agents needed for semantic faults? (\S\ref{sec:7.2})}
+
+\paragraph*{Q2: Semantic faults: agent success $-$ fixed workflow}
+
+Registered source: A1, OA1. Arm B is a deterministic engine; each model is compared with its pooled rate.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.316\textwidth}>{\raggedright\arraybackslash}p{0.066\textwidth}>{\raggedright\arraybackslash}p{0.155\textwidth}>{\raggedright\arraybackslash}p{0.129\textwidth}>{\raggedright\arraybackslash}p{0.205\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 (stage-a) & closed & 136/140 (97\%) & 10/140 (7\%) & +90 (+83 to +94) \\
+claude-opus-5-5 (stage-a) & closed & 138/140 (99\%) & 10/140 (7\%) & +91 (+85 to +95) \\
+gpt-6-luna (stage-a) & closed & 132/140 (94\%) & 10/140 (7\%) & +87 (+80 to +91) \\
+gpt-6.1-sol (stage-a) & closed & 139/140 (99\%) & 10/140 (7\%) & +92 (+86 to +95) \\
+deepseek-v4-flash-0731 (open-stage-a) & open & 140/140 (100\%) & 10/140 (7\%) & +93 (+87 to +96) \\
+deepseek-v4-pro-0813 (open-stage-a) & open & 131/140 (94\%) & 10/140 (7\%) & +86 (+79 to +91) \\
+glm-5.3 (open-stage-a) & open & 140/140 (100\%) & 10/140 (7\%) & +93 (+87 to +96) \\
+glm-5.3-flash (open-stage-a) & open & 139/140 (99\%) & 10/140 (7\%) & +92 (+86 to +95) \\
+\bottomrule
+\end{longtable}}
+
+\paragraph*{Q2-rules: Semantic faults, development domains: agent success $-$ general recovery rules}
+
+Registered source: E3a. Arm B is a deterministic engine; each model is compared with its pooled rate.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.203\textwidth}>{\raggedright\arraybackslash}p{0.077\textwidth}>{\raggedright\arraybackslash}p{0.179\textwidth}>{\raggedright\arraybackslash}p{0.176\textwidth}>{\raggedright\arraybackslash}p{0.236\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 & closed & 136/140 (97\%) & 110/140 (79\%) & +19 (+11 to +26) \\
+claude-opus-5-5 & closed & 138/140 (99\%) & 110/140 (79\%) & +20 (+13 to +28) \\
+deepseek-v4-pro-0813 & open & 131/140 (94\%) & 110/140 (79\%) & +15 (+7 to +23) \\
+deepseek-v4.1-flash-1017 & open & 139/140 (99\%) & 110/140 (79\%) & +21 (+14 to +28) \\
+glm-5.3 & open & 138/140 (99\%) & 110/140 (79\%) & +20 (+13 to +28) \\
+glm-5.3-flash & open & 140/140 (100\%) & 110/140 (79\%) & +21 (+15 to +29) \\
+gpt-6-luna & closed & 134/140 (96\%) & 110/140 (79\%) & +17 (+10 to +25) \\
+gpt-6.1-sol & closed & 140/140 (100\%) & 110/140 (79\%) & +21 (+15 to +29) \\
+\bottomrule
+\end{longtable}}
+
+\subsubsection*{Q3: Does delegation help beyond the runtime? (\S\ref{sec:7.3})}
+
+\paragraph*{Q3-success: Human-needed variants, semantic runtime: success with P6 $-$ P1}
+
+Registered source: D1.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.215\textwidth}>{\raggedright\arraybackslash}p{0.083\textwidth}>{\raggedright\arraybackslash}p{0.160\textwidth}>{\raggedright\arraybackslash}p{0.157\textwidth}>{\raggedright\arraybackslash}p{0.256\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 & closed & 28/60 (47\%) & 12/60 (20\%) & +27 (+10 to +42) \\
+claude-opus-5-5 & closed & 41/60 (68\%) & 15/60 (25\%) & +43 (+26 to +57) \\
+deepseek-v4-flash-0731 & open & 34/60 (57\%) & 7/60 (12\%) & +45 (+29 to +58) \\
+deepseek-v4-pro-0813 & open & 42/60 (70\%) & 12/60 (20\%) & +50 (+33 to +63) \\
+glm-5.3 & open & 39/60 (65\%) & 11/60 (18\%) & +47 (+30 to +60) \\
+glm-5.3-flash & open & 39/60 (65\%) & 6/60 (10\%) & +55 (+39 to +67) \\
+gpt-6-luna & closed & 43/60 (72\%) & 13/60 (22\%) & +50 (+33 to +63) \\
+gpt-6.1-sol & closed & 46/60 (77\%) & 14/60 (23\%) & +53 (+36 to +66) \\
+\bottomrule
+\end{longtable}}
+
+\paragraph*{Q3-harm: Semantic runtime: harm with P1 $-$ P6}
+
+Registered source: D3.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.234\textwidth}>{\raggedright\arraybackslash}p{0.091\textwidth}>{\raggedright\arraybackslash}p{0.156\textwidth}>{\raggedright\arraybackslash}p{0.144\textwidth}>{\raggedright\arraybackslash}p{0.246\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 & closed & 6/90 (7\%) & 5/90 (6\%) & +1 (-7 to +9) \\
+claude-opus-5-5 & closed & 2/90 (2\%) & 5/90 (6\%) & -3 (-10 to +3) \\
+deepseek-v4-flash-0731 & open & 24/90 (27\%) & 6/90 (7\%) & +20 (+9 to +31) \\
+deepseek-v4-pro-0813 & open & 12/90 (13\%) & 4/90 (4\%) & +9 (+0 to +18) \\
+glm-5.3 & open & 11/90 (12\%) & 5/90 (6\%) & +7 (-2 to +16) \\
+glm-5.3-flash & open & 7/90 (8\%) & 1/90 (1\%) & +7 (+0 to +14) \\
+gpt-6-luna & closed & 2/90 (2\%) & 3/90 (3\%) & -1 (-7 to +5) \\
+gpt-6.1-sol & closed & 4/90 (4\%) & 0/90 (0\%) & +4 (-0 to +11) \\
+\bottomrule
+\end{longtable}}
+
+\subsubsection*{Q4: Do contracts fix the keys hazard? (\S\ref{sec:7.4})}
+
+\paragraph*{Q4-keys: Hidden partial commit: harm with keys $-$ without}
+
+Registered source: C3, G4, OC3.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.340\textwidth}>{\raggedright\arraybackslash}p{0.074\textwidth}>{\raggedright\arraybackslash}p{0.133\textwidth}>{\raggedright\arraybackslash}p{0.119\textwidth}>{\raggedright\arraybackslash}p{0.205\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 (confirm) & closed & 18/90 (20\%) & 0/90 (0\%) & +20 (+12 to +29) \\
+claude-opus-5-5 (confirm) & closed & 6/90 (7\%) & 0/90 (0\%) & +7 (+1 to +14) \\
+gpt-6-luna (confirm) & closed & 52/90 (58\%) & 2/90 (2\%) & +56 (+44 to +65) \\
+gpt-6.1-sol (confirm) & closed & 32/90 (36\%) & 0/90 (0\%) & +36 (+26 to +46) \\
+claude-fable-5-1 (stage-c) & closed & 2/90 (2\%) & 0/90 (0\%) & +2 (-2 to +8) \\
+gpt-6-astra (stage-c) & closed & 14/90 (16\%) & 0/90 (0\%) & +16 (+8 to +24) \\
+deepseek-v4-flash-0731 (open-confirm) & open & 13/90 (14\%) & 6/90 (7\%) & +8 (-1 to +17) \\
+deepseek-v4-pro-0813 (open-confirm) & open & 7/90 (8\%) & 6/90 (7\%) & +1 (-7 to +9) \\
+glm-5.3 (open-confirm) & open & 9/90 (10\%) & 1/90 (1\%) & +9 (+2 to +17) \\
+glm-5.3-flash (open-confirm) & open & 13/90 (14\%) & 14/90 (16\%) & -1 (-12 to +10) \\
+\bottomrule
+\end{longtable}}
+
+\paragraph*{Q4-wording: Hidden partial commit: harm with 'at most once' $-$ contract-generated wording}
+
+Registered source: K2.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.214\textwidth}>{\raggedright\arraybackslash}p{0.093\textwidth}>{\raggedright\arraybackslash}p{0.159\textwidth}>{\raggedright\arraybackslash}p{0.146\textwidth}>{\raggedright\arraybackslash}p{0.259\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 & closed & 24/90 (27\%) & 3/90 (3\%) & +23 (+13 to +34) \\
+claude-opus-5-5 & closed & 3/90 (3\%) & 0/90 (0\%) & +3 (-1 to +9) \\
+deepseek-v4-pro-0813 & open & 9/90 (10\%) & 21/90 (23\%) & -13 (-24 to -2) \\
+glm-5.3 & open & 9/90 (10\%) & 2/90 (2\%) & +8 (+1 to +16) \\
+glm-5.3-flash & open & 6/90 (7\%) & 5/90 (6\%) & +1 (-7 to +9) \\
+gpt-6-luna & closed & 47/90 (52\%) & 0/90 (0\%) & +52 (+41 to +62) \\
+gpt-6.1-sol & closed & 18/90 (20\%) & 0/90 (0\%) & +20 (+12 to +29) \\
+\bottomrule
+\end{longtable}}
+
+\paragraph*{Q4-repair: Hidden partial commit, atomic scope: harm without $-$ with repair primitives}
+
+Registered source: R1.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.218\textwidth}>{\raggedright\arraybackslash}p{0.095\textwidth}>{\raggedright\arraybackslash}p{0.158\textwidth}>{\raggedright\arraybackslash}p{0.144\textwidth}>{\raggedright\arraybackslash}p{0.257\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 & closed & 41/90 (46\%) & 0/90 (0\%) & +46 (+35 to +56) \\
+claude-opus-5-5 & closed & 0/90 (0\%) & 0/90 (0\%) & +0 (-4 to +4) \\
+deepseek-v4-pro-0813 & open & 3/90 (3\%) & 0/90 (0\%) & +3 (-1 to +9) \\
+glm-5.3 & open & 21/90 (23\%) & 3/90 (3\%) & +20 (+10 to +30) \\
+glm-5.3-flash & open & 24/90 (27\%) & 4/90 (4\%) & +22 (+12 to +33) \\
+gpt-6-luna & closed & 0/90 (0\%) & 0/90 (0\%) & +0 (-4 to +4) \\
+gpt-6.1-sol & closed & 0/90 (0\%) & 0/90 (0\%) & +0 (-4 to +4) \\
+\bottomrule
+\end{longtable}}
+
+\subsubsection*{Q5: Does the system design hold on workloads it wasn't designed for? (\S\ref{sec:7.5})}
+
+\paragraph*{Q5-hidden-write: Hidden write, held-out accounts-payable family: harm without keys $-$ with the runtime (P6)}
+
+Registered source: E1.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.226\textwidth}>{\raggedright\arraybackslash}p{0.086\textwidth}>{\raggedright\arraybackslash}p{0.159\textwidth}>{\raggedright\arraybackslash}p{0.136\textwidth}>{\raggedright\arraybackslash}p{0.265\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 & closed & 18/30 (60\%) & 0/30 (0\%) & +60 (+39 to +75) \\
+claude-opus-5-5 & closed & 0/30 (0\%) & 0/30 (0\%) & +0 (-11 to +11) \\
+deepseek-v4-pro-0813 & open & 20/30 (67\%) & 0/30 (0\%) & +67 (+45 to +81) \\
+deepseek-v4.1-flash-1017 & open & 29/30 (97\%) & 0/30 (0\%) & +97 (+79 to +99) \\
+glm-5.3 & open & 30/30 (100\%) & 0/30 (0\%) & +100 (+84 to +100) \\
+glm-5.3-flash & open & 30/30 (100\%) & 0/30 (0\%) & +100 (+84 to +100) \\
+gpt-6-luna & closed & 1/30 (3\%) & 0/30 (0\%) & +3 (-8 to +17) \\
+gpt-6.1-sol & closed & 0/30 (0\%) & 0/30 (0\%) & +0 (-11 to +11) \\
+\bottomrule
+\end{longtable}}
+
+\paragraph*{Q5-authority: Authority tasks, held-out accounts-payable family: harm with P1 $-$ P6}
+
+Registered source: E4.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.234\textwidth}>{\raggedright\arraybackslash}p{0.089\textwidth}>{\raggedright\arraybackslash}p{0.147\textwidth}>{\raggedright\arraybackslash}p{0.141\textwidth}>{\raggedright\arraybackslash}p{0.261\textwidth}}
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Model} & \textbf{Family} & \textbf{A} & \textbf{B} & \textbf{A $-$ B (95\% CI)} \\
+\midrule\endhead
+claude-haiku-5-5 & closed & 0/20 (0\%) & 0/20 (0\%) & +0 (-16 to +16) \\
+claude-opus-5-5 & closed & 0/20 (0\%) & 0/20 (0\%) & +0 (-16 to +16) \\
+deepseek-v4-pro-0813 & open & 0/20 (0\%) & 0/20 (0\%) & +0 (-16 to +16) \\
+deepseek-v4.1-flash-1017 & open & 0/20 (0\%) & 0/20 (0\%) & +0 (-16 to +16) \\
+glm-5.3 & open & 2/20 (10\%) & 0/20 (0\%) & +10 (-8 to +30) \\
+glm-5.3-flash & open & 18/20 (90\%) & 0/20 (0\%) & +90 (+64 to +97) \\
+gpt-6-luna & closed & 0/20 (0\%) & 0/20 (0\%) & +0 (-16 to +16) \\
+gpt-6.1-sol & closed & 0/20 (0\%) & 0/20 (0\%) & +0 (-16 to +16) \\
+\bottomrule
+\end{longtable}}
+
+\section{Human hours and costs model}\label{sec:S4}
+
+Text in this section is carried over from the generated project report \texttt{docs/HUMAN\_MODEL.md}. Tables are generated data.
+
+Applied after a run (\texttt{python -m abh human-cost runs/<dir>}) to the escalations each episode recorded. It estimates \textbf{time to decision} (how long the agent waits) and \textbf{effort} (active human minutes, which drive cost) for a population of organizations. It does \textbf{not} model decision quality (whether a reviewer decides correctly); that stays with the in-episode simulated human, and public data on it is thin.
+
+Results are Monte Carlo intervals: each draw samples every parameter uniformly within its range. A parameter labelled \emph{assumption} has no direct empirical source; its range is deliberately wide.
+
+\subsection*{Data Sources}
+
+\begin{itemize}
+\item \textbf{VOID} (Verica Open Incident Database, 2022: \textasciitilde{}10,000 public incident reports, \textasciitilde{}600 orgs): incident durations are strongly right-skewed; means and MTTR mislead. Used for the heavy-tailed (log-normal) shape.
+\item \textbf{PagerDuty, State of Digital Operations} (2020--2021): off-hours interruptions are common (median user \textasciitilde{}2 a month, burned-out users \textasciitilde{}19), and acknowledgement speed varies about 2$\times$ between the best decile and the quartile. Used for paged acknowledgement and the off-hours share.
+\item \textbf{Night-work performance research}: night shifts show slower, more error-prone decisions, but decision-fatigue studies are mixed, and magnitudes are uncertain and mostly from healthcare.
+\item \textbf{Runbooks}: no credible survey of coverage or effect was found; only vendor claims of 25--40\% faster resolution. Treated as an assumption.
+\end{itemize}
+
+\subsection*{Parameters}
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.214\textwidth}>{\raggedright\arraybackslash}p{0.035\textwidth}>{\raggedright\arraybackslash}p{0.052\textwidth}>{\raggedright\arraybackslash}p{0.035\textwidth}>{\raggedright\arraybackslash}p{0.535\textwidth}}
+
+\toprule
+\textbf{Parameter} & \textbf{Low} & \textbf{Central} & \textbf{High} & \textbf{Source} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Parameter} & \textbf{Low} & \textbf{Central} & \textbf{High} & \textbf{Source} \\
+\midrule\endhead
+\texttt{median\_approval\_min} & 5 & 20 & 90 & assumption: async approvals (chat, ticket) take tens of minutes; heavy tail per VOID \\
+\texttt{median\_clarification\_min} & 3 & 15 & 60 & assumption: a question to the requester; heavy tail per VOID \\
+\texttt{median\_execution\_state\_min} & 2 & 5 & 15 & paged-incident acknowledgement (PagerDuty MTTA, best-decile teams \textasciitilde{}2x faster than quartile) \\
+\texttt{lognormal\_sigma} & 0.6 & 1 & 1.4 & VOID: response and duration distributions are strongly right-skewed \\
+\texttt{offhours\_multiplier} & 1.2 & 1.6 & 3 & assumption; PagerDuty: off-hours interruptions are common and drive attrition \\
+\texttt{sleep\_wake\_delay\_min} & 5 & 12 & 30 & assumption: being woken by a page and getting to a terminal \\
+\texttt{sleep\_multiplier} & 1.2 & 1.5 & 2.5 & night-work performance literature: slower decisions (magnitude uncertain) \\
+\texttt{handoff\_delay\_min} & 0 & 5 & 15 & assumption: follow-the-sun handoff to another region \\
+\texttt{runbook\_multiplier} & 0.5 & 0.75 & 0.95 & weak: vendor reports of 25-40\% faster resolution; treat as assumption \\
+\texttt{effort\_approval\_min} & 1 & 3 & 10 & assumption \\
+\texttt{effort\_clarification\_min} & 1 & 2 & 6 & assumption \\
+\texttt{effort\_execution\_state\_min} & 5 & 12 & 30 & assumption: checking a system of record to establish what happened \\
+\texttt{offhours\_share} & 0.2 & 0.33 & 0.5 & assumption informed by PagerDuty off-hours interruption data \\
+\texttt{night\_share\_of\_offhours} & 0.15 & 0.3 & 0.45 & assumption \\
+\bottomrule
+\end{longtable}}
+
+\subsection*{Organization profiles}
+
+Coverage for each kind of escalation outside business hours:
+
+\begin{itemize}
+\item \texttt{follow\_the\_sun}: another region is working, so there's only a small handoff delay.
+\item \texttt{regional\_oncall}: someone is paged; slower off-hours, plus a wake-up delay at night.
+\item \texttt{business\_hours}: nobody is available, so the escalation waits until the next business morning.
+\end{itemize}
+
+The weights are a default population mix, not measured shares.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.087\textwidth}>{\raggedright\arraybackslash}p{0.045\textwidth}>{\raggedright\arraybackslash}p{0.119\textwidth}>{\raggedright\arraybackslash}p{0.127\textwidth}>{\raggedright\arraybackslash}p{0.145\textwidth}>{\raggedright\arraybackslash}p{0.172\textwidth}>{\raggedright\arraybackslash}p{0.060\textwidth}>{\raggedright\arraybackslash}p{0.045\textwidth}}
+
+\toprule
+\textbf{Profile} & \textbf{Weight} & \textbf{Approvals} & \textbf{Clarifications} & \textbf{Execution-state checks} & \textbf{Runbook coverage (appr./clar./exec.)} & \textbf{Approval chain} & \textbf{\$/hour} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Profile} & \textbf{Weight} & \textbf{Approvals} & \textbf{Clarifications} & \textbf{Execution-state checks} & \textbf{Runbook coverage (appr./clar./exec.)} & \textbf{Approval chain} & \textbf{\$/hour} \\
+\midrule\endhead
+startup & 25\% & business\_hours & business\_hours & regional\_oncall & 10\% / 0\% / 30\% & 1 & 110 \\
+mid-size & 35\% & business\_hours & business\_hours & regional\_oncall & 30\% / 10\% / 50\% & 1 & 120 \\
+global enterprise & 30\% & regional\_oncall & business\_hours & follow\_the\_sun & 50\% / 20\% / 70\% & 1 & 140 \\
+regulated & 10\% & business\_hours & business\_hours & follow\_the\_sun & 70\% / 20\% / 80\% & 2 & 160 \\
+\bottomrule
+\end{longtable}}
+
+\subsection*{How the outputs are computed}
+
+For each Monte Carlo draw (default 200, seed 0), every parameter above is sampled uniformly within its range. Then, for each task (episode) in the run:
+
+\begin{enumerate}
+\item \textbf{Organization.} A profile is chosen (by weight, for the weighted mix), and the task's arrival period is drawn: business hours with probability 1 $-$ \texttt{offhours\_share}; otherwise night with probability \texttt{night\_share\_of\_offhours}, else evening/weekend.
+\item \textbf{Each recorded escalation, in order:}
+\begin{itemize}
+\item \emph{decision time} = log-normal(median for its kind, \texttt{lognormal\_sigma}) $\times$ \texttt{runbook\_multiplier} if a runbook exists (probability = the profile's runbook coverage for that kind)
+\item plus the coverage effect outside business hours: \texttt{handoff\_delay\_min} (follow-the-sun); $\times$ \texttt{offhours\_multiplier}, or $\times$ \texttt{sleep\_multiplier} + \texttt{sleep\_wake\_delay\_min} at night (regional on-call); or the wait until 09:00 the next business day (business hours only, \textasciitilde{}40\% of off-hours arrivals fall on a weekend)
+\item approvals with a chain of \emph{n} add \emph{n $-$ 1} further decision times
+\item \emph{effort} = the effort parameter for its kind $\times$ log-normal(0, 0.4), $\times$ \emph{n} for approval chains
+\end{itemize}
+\item \textbf{Per task:} time to decision = $\Sigma$ decision times; effort = $\Sigma$ efforts; \textbf{cost = effort $\div$ 60 $\times$ the profile's \$/hour}. A task with no escalations costs 0.
+\item \textbf{Per draw and policy:} the median and p90 of time to decision across tasks, the share of tasks waiting over 60 minutes, and the \textbf{mean} effort and cost per task.
+\end{enumerate}
+
+Each reported cell is the \textbf{median across draws}, with the 5th--95th percentile across draws in parentheses. Because the cost is a median of per-draw means, it is close to, but not exactly, (effort per task $\div$ 60) $\times$ the mix's average hourly rate.
+
+\emph{Worked example (Stage B, P2, weighted mix):} 17.6 effort-minutes per task $\times$ \$127.50/h (the weights' average rate: 0.25$\times$110 + 0.35$\times$120 + 0.30$\times$140 + 0.10$\times$160) $\div$ 60 $\approx$ \$37.40, against the reported \$38.22 (\$13.01--65.07).
+
+\subsection*{Calibrations}
+
+The ranges should be narrowed with real data: a team's own PagerDuty or incident-tool exports (time to acknowledge, by hour and by whether a runbook was linked), approval-tool logs, or the planned interactive pilot with real reviewers. Edit \texttt{PARAMS} and \texttt{PROFILES} in \texttt{abh/human\_model.py}, then regenerate this file.
+
+\section{System cost model}\label{sec:S5}
+
+Text in this section is carried over from the generated project report \texttt{docs/cost/cost\_model.md}. Tables are generated data.
+
+Generated by \texttt{analysis/cost\_model.py}. \textbf{Not pre-registered.} Sources: \texttt{bench.json} (\texttt{analysis/overhead\_bench.py}, 20 episodes per cell, scripted agent, real ledger) and \texttt{runs/real-ledger-20261028-111807} (LLM agents, real and simulated ledger).
+
+\subsection*{1. What the runtime does (same agent, with and without it)}
+
+The scripted \texttt{naive} agent has no checks or recovery of its own, so the differences between the rows of each condition are the runtime's own work. Medians per episode.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.068\textwidth}>{\raggedright\arraybackslash}p{0.222\textwidth}>{\raggedright\arraybackslash}p{0.149\textwidth}>{\raggedright\arraybackslash}p{0.060\textwidth}>{\raggedright\arraybackslash}p{0.060\textwidth}>{\raggedright\arraybackslash}p{0.037\textwidth}>{\raggedright\arraybackslash}p{0.106\textwidth}>{\raggedright\arraybackslash}p{0.098\textwidth}}
+
+\toprule
+\textbf{Condition} & \textbf{Runtime} & \textbf{Outcome} & \textbf{Agent requests} & \textbf{Runtime requests} & \textbf{Waits ($\times$ 2.5 s)} & \textbf{Payment call} & \textbf{Episode} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Condition} & \textbf{Runtime} & \textbf{Outcome} & \textbf{Agent requests} & \textbf{Runtime requests} & \textbf{Waits ($\times$ 2.5 s)} & \textbf{Payment call} & \textbf{Episode} \\
+\midrule\endhead
+none & no runtime & safe 20/20 & 3 & 0 & 0 & 0.04 s & 0.13 s \\
+ & runtime (P6) & safe 20/20 & 3 & 1 & 0 & 0.05 s & 0.14 s \\
+ & runtime (P6) + fast path & safe 20/20 & 3 & 1 & 0 & 0.05 s & 0.13 s \\
+hidden write & no runtime & harm 20/20 & 4 & 0 & 0 & 3.03 s & 3.16 s \\
+ & runtime (P6) & safe 20/20 & 3 & 6 & 3 & 10.68 s & 10.74 s \\
+ & runtime (P6) + fast path & safe 20/20 & 3 & 7 & 3 & 10.69 s & 10.77 s \\
+partial commit & no runtime & harm 20/20 & 4 & 0 & 0 & 3.03 s & 3.16 s \\
+ & runtime (P6) & safe 20/20 & 4 & 12 & 4 & 13.33 s & 13.40 s \\
+ & runtime (P6) + fast path & safe 20/20 & 4 & 5 & 0 & 3.17 s & 3.25 s \\
+\bottomrule
+\end{longtable}}
+
+A plain request through the proxy and service to the fast replica took 6.74 millisecond (median; p90 9.05 ms) on this machine. The 3 s client timeout is part of both rows under a fault.
+
+\subsection*{2. Cost model}
+
+Runtime overhead per payment call = extra requests $\times$ RTT + waits $\times$ 2.5 s. Requests here are sequential, so RTTs add. Overhead in seconds:
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.187\textwidth}>{\raggedright\arraybackslash}p{0.060\textwidth}>{\raggedright\arraybackslash}p{0.037\textwidth}>{\raggedright\arraybackslash}p{0.118\textwidth}>{\raggedright\arraybackslash}p{0.088\textwidth}>{\raggedright\arraybackslash}p{0.092\textwidth}>{\raggedright\arraybackslash}p{0.097\textwidth}>{\raggedright\arraybackslash}p{0.120\textwidth}}
+
+\toprule
+\textbf{Condition} & \textbf{Extra requests} & \textbf{Waits} & \textbf{localhost (measured) (6.74 ms)} & \textbf{same zone (1 ms)} & \textbf{same region (5 ms)} & \textbf{cross-region (70 ms)} & \textbf{intercontinental (150 ms)} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Condition} & \textbf{Extra requests} & \textbf{Waits} & \textbf{localhost (measured) (6.74 ms)} & \textbf{same zone (1 ms)} & \textbf{same region (5 ms)} & \textbf{cross-region (70 ms)} & \textbf{intercontinental (150 ms)} \\
+\midrule\endhead
+none & 1 & 0 & 0.01 & 0.00 & 0.01 & 0.07 & 0.15 \\
+$\hookrightarrow$ with fast path & 1 & 0 & 0.01 & 0.00 & 0.01 & 0.07 & 0.15 \\
+hidden write & 6 & 3 & 7.54 & 7.51 & 7.53 & 7.92 & 8.40 \\
+$\hookrightarrow$ with fast path & 7 & 3 & 7.55 & 7.51 & 7.54 & 7.99 & 8.55 \\
+partial commit & 12 & 4 & 10.08 & 10.01 & 10.06 & 10.84 & 11.80 \\
+$\hookrightarrow$ with fast path & 5 & 0 & 0.03 & 0.01 & 0.03 & 0.35 & 0.75 \\
+\bottomrule
+\end{longtable}}
+
+\begin{itemize}
+\item \textbf{No fault (the common case):} one extra read to verify the payment landed, so the overhead is one RTT, from 7 ms locally to 150 ms intercontinental. No waits.
+\item \textbf{Under a fault, the waits dominate.} Even at 150 ms RTT the requests add about 1--2 s; the polling adds 7.5--10 s. Waits are a runtime parameter (4 polls, 2.5 s apart), sized to the replication lag they must outlast, so their cost tracks the deployment's lag, not its RTT.
+\item \textbf{Partial commit was the most expensive case, and the fast path removes almost all of it.} Without it, the runtime polls for a completed payment that a partial commit can never produce, then compensates. With it (\texttt{inspect\_partial}: the contract offers a consistent lookup of a keyed attempt, which waits for any attempt in flight), the runtime learns at once that the attempt is partial, compensates and retries: no waits, and the payment call returns about 0.2 s after the client's timeout instead of about 10 s.
+\item \textbf{The fast path doesn't help a hidden write,} and costs it one extra request. The write is complete, so the runtime still waits until it is visible before reporting success, so that the agent never reads state older than its own result. Visibility lag sets that cost.
+\end{itemize}
+
+\subsection*{3. With LLM agents (real-services run)}
+
+Measured before the fast path existed (P6 without it). Means per episode over 6 models $\times$ 30 seeds, except wall time (median; real stack only, since the simulator's clock is simulated). P1 is the agent recovering on its own. The fault arms compare P1 without keys (hidden write) or with keys (partial commit) against P6.
+
+{\scriptsize
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.142\textwidth}>{\raggedright\arraybackslash}p{0.082\textwidth}>{\raggedright\arraybackslash}p{0.158\textwidth}>{\raggedright\arraybackslash}p{0.065\textwidth}>{\raggedright\arraybackslash}p{0.056\textwidth}>{\raggedright\arraybackslash}p{0.062\textwidth}>{\raggedright\arraybackslash}p{0.076\textwidth}>{\raggedright\arraybackslash}p{0.088\textwidth}>{\raggedright\arraybackslash}p{0.047\textwidth}}
+
+\toprule
+\textbf{Condition} & \textbf{Substrate} & \textbf{Policy} & \textbf{Harm} & \textbf{Model calls} & \textbf{Agent tool calls} & \textbf{Tokens (in + out)} & \textbf{Model cost} & \textbf{Wall time} \\
+\midrule\endfirsthead
+
+\toprule
+\textbf{Condition} & \textbf{Substrate} & \textbf{Policy} & \textbf{Harm} & \textbf{Model calls} & \textbf{Agent tool calls} & \textbf{Tokens (in + out)} & \textbf{Model cost} & \textbf{Wall time} \\
+\midrule\endhead
+no fault & real & P1 & 0/180 & 3.85 & 3.48 & 5,064 & \$0.0047 & 6.7 s \\
+no fault & simulated & P1 & 0/180 & 3.81 & 3.46 & 4,977 & \$0.0039 & --- \\
+hidden write & real & P1[expose\_keys=False] & 125/180 & 7.54 & 8.21 & 12,821 & \$0.0107 & 15.5 s \\
+hidden write & real & P6[threshold=0.7] & 0/180 & 3.60 & 3.15 & 6,280 & \$0.0050 & 16.3 s \\
+hidden write & simulated & P1[expose\_keys=False] & 82/180 & 7.02 & 7.72 & 11,414 & \$0.0086 & --- \\
+hidden write & simulated & P6[threshold=0.7] & 0/180 & 3.58 & 3.14 & 6,255 & \$0.0038 & --- \\
+partial commit & real & P1 & 49/180 & 5.88 & 5.85 & 8,981 & \$0.0069 & 12.8 s \\
+partial commit & real & P6[threshold=0.7] & 0/180 & 3.63 & 3.19 & 6,451 & \$0.0049 & 19.0 s \\
+partial commit & simulated & P1 & 48/180 & 5.87 & 5.85 & 8,987 & \$0.0069 & --- \\
+partial commit & simulated & P6[threshold=0.7] & 0/180 & 3.67 & 3.19 & 6,501 & \$0.0045 & --- \\
+\bottomrule
+\end{longtable}}
+
+\begin{itemize}
+\item \textbf{Under a fault, the runtime replaces the agent's recovery turns.} On the real stack, with no harm: hidden write, model calls 7.5 $\rightarrow$ 3.6 and tokens 51\% fewer, at similar wall time (15.5 $\rightarrow$ 16.3 s); partial commit, model calls 5.9 $\rightarrow$ 3.6 and tokens 28\% fewer, but 6.2 s slower (12.8 $\rightarrow$ 19.0 s): the avoidable polling in part 2. The agent never sees the fault.
+\item \textbf{For scale,} the median model turn on the real stack took 1.9 s. The runtime's no-fault overhead, one RTT, is about 280$\times$ smaller locally and about 13$\times$ smaller at an intercontinental 150 ms. Its fault-path waits (7.5--10 s) equal about 4--5 model turns.
+\item \textbf{The simulator's cost figures match the real stack's} (model calls, tool calls, tokens), so the cost results from the simulated studies (Stage A's 20\% fewer model calls) carry over.
+\end{itemize}
+
+\end{document}

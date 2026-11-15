@@ -23,6 +23,22 @@ judge. Every episode records duplicate side effects, authority violations, escal
 labelled necessary or not), the human needs that were met, how many failures reached the model,
 tokens, and simulated latency.
 
+## Paper
+
+The first paper from this harness is **Execution Boundaries for Agentic Systems** (Stacie
+Riddle, 2026). arXiv link to follow.
+
+- [`paper/full.md`](paper/full.md) and [`paper/supplements.md`](paper/supplements.md): the
+  paper and its supplement (S1–S5).
+- [`paper/latex/`](paper/latex/): the LaTeX build. `md2tex.py --supplement` produces the paper and
+  supplement as one PDF; see [its README](paper/latex/README.md).
+- [`paper/figures/make_figures.py`](paper/figures/make_figures.py): regenerates every figure from
+  the committed runs.
+- [`docs/preregistration/`](docs/preregistration/) and [`docs/RESULTS.md`](docs/RESULTS.md): the
+  registered hypotheses and the results.
+- `runs/`: the committed runs behind the paper (episodes and traces). `python3 -m abh rescore
+  runs/<dir>` replays any of them with no model calls.
+
 ## Quick start
 
 The core needs only Python ≥ 3.9 and has no dependencies.
@@ -103,7 +119,7 @@ prices are supplied.
 | Action semantics | `abh/semantics.py` | side_effect, idempotent, reversible, compensable, consequence, authority_requirement, idempotency-key support, multipart |
 | Execution states | `abh/semantics.py` | NOT_EXECUTED, EXECUTED, EXECUTION_UNKNOWN, PARTIALLY_EXECUTED, VERIFIED, SEMANTIC_FAILURE |
 | World | `abh/world.py` | versioned records with truth and visible views (delayed visibility), effects ledger, simulated clock |
-| Faults (12) | `abh/faults.py` | the full prospectus §6 taxonomy; each injection records whether it committed and who resolved it; faults can be combined (compound faults) (link: https://docs.google.com/document/d/1Uwq2EzlwCvjG2rwmyl9x1YVzFJiwK02g9VYpPjhgEBE/edit?tab=t.h35zl5z98uqb)|
+| Faults (12) | `abh/faults.py` | the full fault taxonomy, listed in [Fault types](docs/DEFINITIONS.md#fault-types); each injection records whether it committed and who resolved it; faults can be combined ([compound faults](docs/ARCHITECTURE.md#compound-faults)) |
 | Runtime | `abh/runtime.py` | `none` (raw errors), `naive_retry` (conventional infra retry), `semantic` (keys, reconcile, verify, compensate, classify) |
 | Authority | `abh/authority.py` | principals, delegation, rules; kept independent of uncertainty |
 | Human | `abh/human.py`, `abh/human_model.py` | in-episode decisions: simulated (error rate, vigilance decrement, attention budget) or interactive. After the run: an empirical time-and-cost model by organization profile (coverage, after-hours, runbooks, approval chains) with Monte Carlo intervals; `abh human-cost runs/<dir>`, see [docs/HUMAN_MODEL.md](docs/HUMAN_MODEL.md) |
@@ -149,3 +165,7 @@ Definitions and notes are maintained in `abh/definitions.py`. After editing it, 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the harness maps to the RQs and
 hypotheses, and [docs/OPENAI_MODELS.md](docs/OPENAI_MODELS.md) for the OpenAI integration and
 class, component, sequence, and deployment diagrams.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

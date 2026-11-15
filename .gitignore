@@ -32,3 +32,10 @@ services/ledger/.run/
 !runs/real-ledger-pilot-20261028-110218/
 !runs/real-ledger-pilot-recheck-20261028-110737/
 !runs/real-ledger-20261028-111807/
+
+# macOS and LaTeX build leftovers
+.DS_Store
+paper/latex/*.log
+paper/latex/main_*.pdf
+paper/latex/usenix2019_v3.2-sample.tex
+paper/arxiv/

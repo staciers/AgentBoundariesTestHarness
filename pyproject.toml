@@ -7,6 +7,7 @@ name = "abh"
 version = "0.1.0"
 description = "Autonomy Boundary Harness: fault-injection testbed for allocating control across runtimes, agents and humans"
 requires-python = ">=3.9"
+license = {text = "MIT"}
 dependencies = []
 
 [project.optional-dependencies]
