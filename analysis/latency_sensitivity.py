@@ -134,7 +134,7 @@ def main(run_dir: str = RUN, out_dir: str = "docs/latency") -> None:
     print("\n".join(out))
 
 
-def plot(real, models, allgaps, observed, path):
+def plot(real, models, allgaps, observed, path, title=True):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -173,9 +173,10 @@ def plot(real, models, allgaps, observed, path):
         ax.spines[s].set_visible(False)
     for s in ("left", "bottom"):
         ax.spines[s].set_color(grid)
-    ax.set_title("Hidden write, no keys: harm depends on timing; the runtime doesn't\n"
-                 "lines: estimated from real-stack retry timing · markers: observed (simulator at 4.2 s, real at 6 s)",
-                 fontsize=10, color=ink, loc="left", pad=18)
+    if title:  # the paper's caption carries the title, so make_figures passes title=False
+        ax.set_title("Hidden write, no keys: harm depends on timing; the runtime doesn't\n"
+                     "lines: estimated from real-stack retry timing · markers: observed (simulator at 4.2 s, real at 6 s)",
+                     fontsize=10, color=ink, loc="left", pad=18)
     ax.legend(fontsize=8, frameon=False, loc="center right", bbox_to_anchor=(1.0, 0.42))
     fig.tight_layout()
     fig.savefig(path, dpi=160, facecolor=surface)

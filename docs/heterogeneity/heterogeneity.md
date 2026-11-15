@@ -11,15 +11,15 @@ Per model: arm A and arm B rates, and the risk difference A − B in percentage 
 | Claim | Source | Models | Pooled A − B | Range across models | Direction | CI > 0 | I² | Q p | Breslow–Day p |
 |---|---|---|---|---|---|---|---|---|---|
 | Q1: Hidden write, development domains: harm without keys − with the runtime (P6) | C1, G1, OC1 | 10 | +78 | +54 to +99 | 10 / 0 / 0 | 10/10 | 94% | 4.8e-28 | 0.83 |
-| Q1-held-out: Hidden write, held-out ledger: harm without keys − with the runtime (P6) | E1 | 8 | +53 | +0 to +100 | 6 / 2 / 0 | 5/8 | 99% | 2.2e-246 | 7.8e-08 |
 | Q2: Semantic faults: agent success − fixed workflow | A1, OA1 | 8 | +91 | +86 to +93 | 8 / 0 / 0 | 8/8 | 65% | 0.0061 | n/a (shared baseline) |
-| Q2-rules: Semantic faults, development: agent success − generic rules | E3a | 8 | +19 | +15 to +21 | 8 / 0 / 0 | 8/8 | 61% | 0.011 | n/a (shared baseline) |
+| Q2-rules: Semantic faults, development domains: agent success − general recovery rules | E3a | 8 | +19 | +15 to +21 | 8 / 0 / 0 | 8/8 | 61% | 0.011 | n/a (shared baseline) |
 | Q3-success: Human-needed variants, semantic runtime: success with P6 − P1 | D1 | 8 | +46 | +27 to +55 | 8 / 0 / 0 | 8/8 | 17% | 0.3 | 0.39 |
 | Q3-harm: Semantic runtime: harm with P1 − P6 | D3 | 8 | +5 | -3 to +20 | 6 / 0 / 2 | 3/8 | 67% | 0.0037 | 0.044 |
-| Q3-authority: Authority variants: harm with P1 − P6 | E4 | 8 | +12 | +0 to +90 | 2 / 6 / 0 | 1/8 | 94% | 9.3e-23 | 0.036 |
 | Q4-keys: Hidden partial commit: harm with keys − without | C3, G4, OC3 | 10 | +15 | -1 to +56 | 9 / 0 / 1 | 6/10 | 93% | 1.8e-23 | 3.1e-10 |
 | Q4-wording: Hidden partial commit: harm with 'at most once' − contract-generated wording | K2 | 7 | +13 | -13 to +52 | 6 / 0 / 1 | 4/7 | 94% | 4.8e-21 | 1.8e-13 |
 | Q4-repair: Hidden partial commit, atomic scope: harm without − with repair primitives | R1 | 7 | +13 | +0 to +46 | 4 / 3 / 0 | 3/7 | 94% | 2.1e-20 | 0.038 |
+| Q5-hidden-write: Hidden write, held-out accounts-payable family: harm without keys − with the runtime (P6) | E1 | 8 | +53 | +0 to +100 | 6 / 2 / 0 | 5/8 | 99% | 2.2e-246 | 7.8e-08 |
+| Q5-authority: Authority tasks, held-out accounts-payable family: harm with P1 − P6 | E4 | 8 | +12 | +0 to +90 | 2 / 6 / 0 | 1/8 | 94% | 9.3e-23 | 0.036 |
 
 ## Per model
 
@@ -40,21 +40,6 @@ Registered source: C1, G1, OC1.
 | glm-5.3 (open-confirm) | open | 98/120 (82%) | 0/40 (0%) | +82 (+70 to +88) |
 | glm-5.3-flash (open-confirm) | open | 113/120 (94%) | 0/40 (0%) | +94 (+84 to +97) |
 
-### Q1-held-out: Hidden write, held-out ledger: harm without keys − with the runtime (P6)
-
-Registered source: E1.
-
-| Model | Family | A | B | A − B (95% CI) |
-|---|---|---|---|---|
-| claude-haiku-5-5 | closed | 18/30 (60%) | 0/30 (0%) | +60 (+39 to +75) |
-| claude-opus-5-5 | closed | 0/30 (0%) | 0/30 (0%) | +0 (-11 to +11) |
-| deepseek-v4-pro-0813 | open | 20/30 (67%) | 0/30 (0%) | +67 (+45 to +81) |
-| deepseek-v4.1-flash-1017 | open | 29/30 (97%) | 0/30 (0%) | +97 (+79 to +99) |
-| glm-5.3 | open | 30/30 (100%) | 0/30 (0%) | +100 (+84 to +100) |
-| glm-5.3-flash | open | 30/30 (100%) | 0/30 (0%) | +100 (+84 to +100) |
-| gpt-6-luna | closed | 1/30 (3%) | 0/30 (0%) | +3 (-8 to +17) |
-| gpt-6.1-sol | closed | 0/30 (0%) | 0/30 (0%) | +0 (-11 to +11) |
-
 ### Q2: Semantic faults: agent success − fixed workflow
 
 Registered source: A1, OA1. Arm B is a deterministic engine; each model is compared with its pooled rate.
@@ -70,7 +55,7 @@ Registered source: A1, OA1. Arm B is a deterministic engine; each model is compa
 | glm-5.3 (open-stage-a) | open | 140/140 (100%) | 10/140 (7%) | +93 (+87 to +96) |
 | glm-5.3-flash (open-stage-a) | open | 139/140 (99%) | 10/140 (7%) | +92 (+86 to +95) |
 
-### Q2-rules: Semantic faults, development: agent success − generic rules
+### Q2-rules: Semantic faults, development domains: agent success − general recovery rules
 
 Registered source: E3a. Arm B is a deterministic engine; each model is compared with its pooled rate.
 
@@ -114,21 +99,6 @@ Registered source: D3.
 | glm-5.3-flash | open | 7/90 (8%) | 1/90 (1%) | +7 (+0 to +14) |
 | gpt-6-luna | closed | 2/90 (2%) | 3/90 (3%) | -1 (-7 to +5) |
 | gpt-6.1-sol | closed | 4/90 (4%) | 0/90 (0%) | +4 (-0 to +11) |
-
-### Q3-authority: Authority variants: harm with P1 − P6
-
-Registered source: E4.
-
-| Model | Family | A | B | A − B (95% CI) |
-|---|---|---|---|---|
-| claude-haiku-5-5 | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
-| claude-opus-5-5 | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
-| deepseek-v4-pro-0813 | open | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
-| deepseek-v4.1-flash-1017 | open | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
-| glm-5.3 | open | 2/20 (10%) | 0/20 (0%) | +10 (-8 to +30) |
-| glm-5.3-flash | open | 18/20 (90%) | 0/20 (0%) | +90 (+64 to +97) |
-| gpt-6-luna | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
-| gpt-6.1-sol | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
 
 ### Q4-keys: Hidden partial commit: harm with keys − without
 
@@ -174,3 +144,33 @@ Registered source: R1.
 | glm-5.3-flash | open | 24/90 (27%) | 4/90 (4%) | +22 (+12 to +33) |
 | gpt-6-luna | closed | 0/90 (0%) | 0/90 (0%) | +0 (-4 to +4) |
 | gpt-6.1-sol | closed | 0/90 (0%) | 0/90 (0%) | +0 (-4 to +4) |
+
+### Q5-hidden-write: Hidden write, held-out accounts-payable family: harm without keys − with the runtime (P6)
+
+Registered source: E1.
+
+| Model | Family | A | B | A − B (95% CI) |
+|---|---|---|---|---|
+| claude-haiku-5-5 | closed | 18/30 (60%) | 0/30 (0%) | +60 (+39 to +75) |
+| claude-opus-5-5 | closed | 0/30 (0%) | 0/30 (0%) | +0 (-11 to +11) |
+| deepseek-v4-pro-0813 | open | 20/30 (67%) | 0/30 (0%) | +67 (+45 to +81) |
+| deepseek-v4.1-flash-1017 | open | 29/30 (97%) | 0/30 (0%) | +97 (+79 to +99) |
+| glm-5.3 | open | 30/30 (100%) | 0/30 (0%) | +100 (+84 to +100) |
+| glm-5.3-flash | open | 30/30 (100%) | 0/30 (0%) | +100 (+84 to +100) |
+| gpt-6-luna | closed | 1/30 (3%) | 0/30 (0%) | +3 (-8 to +17) |
+| gpt-6.1-sol | closed | 0/30 (0%) | 0/30 (0%) | +0 (-11 to +11) |
+
+### Q5-authority: Authority tasks, held-out accounts-payable family: harm with P1 − P6
+
+Registered source: E4.
+
+| Model | Family | A | B | A − B (95% CI) |
+|---|---|---|---|---|
+| claude-haiku-5-5 | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
+| claude-opus-5-5 | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
+| deepseek-v4-pro-0813 | open | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
+| deepseek-v4.1-flash-1017 | open | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
+| glm-5.3 | open | 2/20 (10%) | 0/20 (0%) | +10 (-8 to +30) |
+| glm-5.3-flash | open | 18/20 (90%) | 0/20 (0%) | +90 (+64 to +97) |
+| gpt-6-luna | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
+| gpt-6.1-sol | closed | 0/20 (0%) | 0/20 (0%) | +0 (-16 to +16) |
