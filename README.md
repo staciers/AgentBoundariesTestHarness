@@ -36,6 +36,8 @@ Riddle, 2026). arXiv link to follow.
   the committed runs.
 - [`docs/preregistration/`](docs/preregistration/) and [`docs/RESULTS.md`](docs/RESULTS.md): the
   registered hypotheses and the results.
+- [`docs/corrections/`](docs/corrections/): corrections made after the studies, with how each was
+  validated (November 2026: [failed verification and unsafe retries](docs/corrections/2026-11-runtime-verification.md)).
 - `runs/`: the committed runs behind the paper (episodes and traces). `python3 -m abh rescore
   runs/<dir>` replays any of them with no model calls.
 

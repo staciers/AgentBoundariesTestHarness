@@ -1,0 +1,1763 @@
+{
+  "generated": "2026-11-17T11:10:25",
+  "code": "ce2e44f7 + uncommitted abh/ changes",
+  "seconds": 11.1,
+  "total": {
+    "episodes": 124941,
+    "identical": 51321,
+    "changed": 72,
+    "skipped_real_services": 1338,
+    "errored": 1,
+    "no_trace": 72209,
+    "no_config": 0
+  },
+  "runs": [
+    {
+      "run": "compound-confirm-20261012-112744",
+      "stats": {
+        "episodes": 2680,
+        "identical": 2680,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "compound-live-20261011-123250",
+      "stats": {
+        "episodes": 396,
+        "identical": 396,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "contracts-20261026-140610",
+      "stats": {
+        "episodes": 4480,
+        "identical": 4480,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "contracts-pilot-20261026-131823",
+      "stats": {
+        "episodes": 90,
+        "identical": 90,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "contracts-supplement-20261027-090006",
+      "stats": {
+        "episodes": 560,
+        "identical": 560,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "open-confirm-20261014-081413",
+      "stats": {
+        "episodes": 2680,
+        "identical": 2680,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "open-pilot-20261013-143116",
+      "stats": {
+        "episodes": 252,
+        "identical": 252,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "open-stage-a-20261014-081413",
+      "stats": {
+        "episodes": 4690,
+        "identical": 4690,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "pilot-scripted-20261012-075322",
+      "stats": {
+        "episodes": 47190,
+        "identical": 0,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 47190,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "rate-sweep-scripted-20261013-105331",
+      "stats": {
+        "episodes": 8100,
+        "identical": 0,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 8100,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "real-ledger-20261028-111807",
+      "stats": {
+        "episodes": 2520,
+        "identical": 1260,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 1260
+      },
+      "changed": []
+    },
+    {
+      "run": "real-ledger-pilot-20261028-110218",
+      "stats": {
+        "episodes": 36,
+        "identical": 0,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 36
+      },
+      "changed": []
+    },
+    {
+      "run": "real-ledger-pilot-recheck-20261028-110737",
+      "stats": {
+        "episodes": 42,
+        "identical": 0,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 42
+      },
+      "changed": []
+    },
+    {
+      "run": "repair-20261027-101723",
+      "stats": {
+        "episodes": 2730,
+        "identical": 2730,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "repair-pilot-20261027-100555",
+      "stats": {
+        "episodes": 90,
+        "identical": 90,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "runtime-factorial-20261012-075353",
+      "stats": {
+        "episodes": 9000,
+        "identical": 0,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 9000,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-a-20261013-101143",
+      "stats": {
+        "episodes": 4690,
+        "identical": 4690,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-a-pilot-20261013-093242",
+      "stats": {
+        "episodes": 252,
+        "identical": 252,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-b-20261015-075812",
+      "stats": {
+        "episodes": 7920,
+        "identical": 7919,
+        "changed": 0,
+        "errored": 1,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-b-20261015-075812-sensitivity",
+      "stats": {
+        "episodes": 7920,
+        "identical": 1,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 7919,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-b-pilot-20261014-135034",
+      "stats": {
+        "episodes": 480,
+        "identical": 448,
+        "changed": 32,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": [
+        {
+          "key": "1f2bc96579bd8985",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "ab14b03d4d5bbc21",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "62d6abd31e1dea43",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "99a4294f18fa79a2",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "0a94f9c5663dbdb7",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "0a7a551b299f6242",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "beedaa0c49df19f6",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "128bff9e6b5d47e9",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "9e7d655ad3e7643f",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "b77d0e88a806b2b8",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "8fc8a16d7a9cc836",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "0d7ccd16e7d5eb64",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "9d5b7ea90313428d",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "71e66bc9befd8783",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "042261a0f0cd216e",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "05741f5c03c45d52",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "0a32a33ae8b954b9",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "a367229905eb25f5",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "f147573e5105048b",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "6d18897396ddd1e4",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "db0fe6ea5be663a3",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "789c89d00bf3db7e",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "f1d083800c0ac366",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "203c17466b434461",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "e3d61bc6a13f130b",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "0b78bfb5e98ae3e7",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "b4938f4b2416625f",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "30f1db9c420275c0",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "c3c8e7be3e639e4c",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "934a4fc6af11fce3",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "358794112ac1cf24",
+          "fields": [
+            "invariants",
+            "interventions",
+            "sim_duration_ms",
+            "outcome",
+            "success",
+            "agent_visible_results"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        },
+        {
+          "key": "a50b31d604ac5e47",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "fail_safe",
+            "success": false,
+            "harm": false
+          }
+        }
+      ]
+    },
+    {
+      "run": "stage-b-pilot-recheck-20261014-141145",
+      "stats": {
+        "episodes": 160,
+        "identical": 160,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-c-20261013-112552",
+      "stats": {
+        "episodes": 1300,
+        "identical": 1300,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-c-pilot-20261013-104810",
+      "stats": {
+        "episodes": 48,
+        "identical": 48,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-d-20261018-111143",
+      "stats": {
+        "episodes": 10800,
+        "identical": 10800,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-d-pilot-20261018-104306",
+      "stats": {
+        "episodes": 300,
+        "identical": 300,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-e-20261027-135311",
+      "stats": {
+        "episodes": 5250,
+        "identical": 5250,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    },
+    {
+      "run": "stage-e-pilot-20261027-121458",
+      "stats": {
+        "episodes": 245,
+        "identical": 205,
+        "changed": 40,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": [
+        {
+          "key": "fad652f16a7d410b",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "dd5d40f6a066c297",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "49fbd515b6905cdf",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "5327f201f8a72aa5",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "f8a5afdf716ee0e7",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "ff2ed2afc309e092",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "9afd67c9fe8c8099",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "8226c17f1924ed74",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "5d80c1bbfa3136ad",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "62444579c8d71465",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "43139276d14b3432",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "7690f10eff0adbd1",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "a51c9808d56fecd0",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "aa386f211a6bccff",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "2d9f043b0f9a4614",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "fbbfb4fd13bff18d",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "395b48232c2daf22",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "abd76d8cfe429ba8",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "b9ad2e4342246526",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "de50b8deeedfcab6",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "579d5d99006e0652",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "c82400e40b934be7",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "096bb34f0009e96e",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "dd6abb3650ed2112",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "e6079a36ea3441e2",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "94dc021f8833e447",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "26342031f67efdd6",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "7d3e2136bb530666",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "6630f78efd9aeba8",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "ef56b2b007e70109",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "310bcf0a051fb8d5",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "e0a1b38f0b7d2990",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "0943eeb1add81447",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "b3d95929b0991d3b",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "7b4471048711bb0c",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "ff66446bd9e9bf80",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "4aee6b2cc9c37adf",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "1059af3dd7bfc56f",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "0e82f34f1ab5970f",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        },
+        {
+          "key": "21567b8e9aed3b85",
+          "fields": [
+            "invariants",
+            "outcome",
+            "success",
+            "harm"
+          ],
+          "before": {
+            "outcome": "success",
+            "success": true,
+            "harm": false
+          },
+          "after": {
+            "outcome": "harm",
+            "success": false,
+            "harm": true
+          }
+        }
+      ]
+    },
+    {
+      "run": "stage-e-pilot-recheck-20261027-122358",
+      "stats": {
+        "episodes": 40,
+        "identical": 40,
+        "changed": 0,
+        "errored": 0,
+        "no_trace": 0,
+        "no_config": 0,
+        "skipped_real_services": 0
+      },
+      "changed": []
+    }
+  ]
+}

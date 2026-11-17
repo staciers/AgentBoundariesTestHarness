@@ -77,6 +77,8 @@ def main(argv=None) -> int:
     sub.add_parser("definitions", help="regenerate docs/DEFINITIONS.md from abh/definitions.py")
     rs = sub.add_parser("rescore", help="re-score a run's traces under the current evaluator (no model calls)")
     rs.add_argument("run_dir")
+    rs.add_argument("--check", action="store_true",
+                    help="replay under the current code and report differences; write nothing")
     e = sub.add_parser("episode")
     e.add_argument("scenario")
     e.add_argument("--policy", default="P1", help="P1..P6, ORACLE, or JSON e.g. '{\"name\":\"P3\",\"threshold\":0.6}'")
@@ -142,7 +144,11 @@ def main(argv=None) -> int:
         print(write_definitions_md())
         return 0
     if a.cmd == "rescore":
-        from .rescore import rescore_run
+        from .rescore import check_run, rescore_run
+        if a.check:
+            res = check_run(a.run_dir)
+            print(json.dumps(res, indent=2))
+            return 1 if res["stats"]["changed"] else 0
         stats = rescore_run(a.run_dir)
         print(json.dumps(stats, indent=2))
         eps = [x for x in load_episodes(f"{a.run_dir}/episodes.jsonl") if "error" not in x]
