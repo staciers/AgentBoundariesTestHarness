@@ -168,4 +168,8 @@ class, component, sequence, and deployment diagrams.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+- **Code** (including the scripts in `paper/` that build the figures and the PDF): MIT. See
+  [LICENSE](LICENSE).
+- **Paper, figures and data** (the paper text in `paper/`, figures, the reports in `docs/`, and
+  the run data in `runs/`): [Creative Commons Attribution 4.0 International (CC BY
+  4.0)](https://creativecommons.org/licenses/by/4.0/). You may reuse and adapt them with credit.
