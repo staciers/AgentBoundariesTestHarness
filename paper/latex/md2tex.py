@@ -383,7 +383,9 @@ def convert(md: str, anonymous: bool = False, supplement: str | None = None) -> 
             k += 1
             body = block_until(lambda x: x.startswith("```"))
             k += 1
-            out.append("\\begin{Verbatim}[breaklines,fontsize=\\footnotesize]\n" + "\n".join(body)
+            # The monospace font has no "§"; write it as "Sec." in code.
+            body = [b.replace("§", "Sec. ") for b in body]
+            out.append("\\begin{Verbatim}[breaklines,samepage=true,fontsize=\\footnotesize]\n" + "\n".join(body)
                        + "\n\\end{Verbatim}\n")
             continue
         om = re.match(r"^!\[([^\]]*)\]\((\.\./)?(docs/.+?\.png)\)", ln)
@@ -541,7 +543,8 @@ def main(src: str = "paper/full.md", dst: str = "paper/latex/main.tex", anonymou
             sys.exit(f"refusing to write an anonymous build: the output contains {', '.join(found)}.{hint}")
     with open(dst, "w") as f:
         f.write(tex)
-    unresolved = sorted(set(re.findall(r"\[[^\]\n]*\d{4}[a-c]?[^\]\n]*\](?!\()", tex)))
+    prose = re.sub(r"\\begin\{Verbatim\}.*?\\end\{Verbatim\}", "", tex, flags=re.S)  # code isn't cited
+    unresolved = sorted(set(re.findall(r"\[[^\]\n]*\d{4}[a-c]?[^\]\n]*\](?!\()", prose)))
     print(f"wrote {dst}; unresolved citations: {unresolved or 'none'}")
 
 

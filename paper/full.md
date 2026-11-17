@@ -15,7 +15,7 @@ The control plane in this implementation decides who resolves each kind of probl
 
 Eleven preregistered experiments with LLMs found that the tool control system prevented unseen error-related harms for all tested models after the tool control system was implemented. This result held when run on a systems using a Postgres cluster and standard HTTP servers.
 
-The implementation of the contract further reduced the risk of improper key use from 18% to 5%, but other model-specific results suggest that risk from improper key use may increase for some key use cases until the tool use contract is updated to include methods for completing incomplete transactions, which reduced risk to 1%. The tool control system adds one additional round trip per write transaction in the absence of errors, but a fast path for completing hidden incomplete transactions using the tool use contract reduced processing time from 10s of polling to 0.2s.
+The implementation of the contract further reduced the risk of improper key use from 18% to 5%, but other model-specific results suggest that risk from improper key use may increase for some key use cases until the tool use contract is updated to include methods for completing incomplete transactions, which reduced risk to 1%. The tool control system adds one additional round trip per write transaction in the absence of errors, but a fast path for completing hidden incomplete transactions using the tool use contract reduced processing time from 10 seconds of polling to 0.2 seconds (after the 3 second client timeout). This improvement is visible in Table 2 with a 3.2 second call to the payment endpoint using the fast path logic compared to 13.3 seconds without it.
 
 ---
 
@@ -24,7 +24,7 @@ An agent is making a payment to a vendor on behalf of a client. A payment servic
 
 Nothing in this trace is particularly unusual. Lost committed writes from timeouts and partial writes and underreplicated data with restricted keys are known challenges for distributed systems. There are known solutions to these problems, such as idempotent and saga-style transaction models and at-least-once messaging with durable messaging systems. What is novel here is the client. Developers working with today's clients see both examples of clients accessing resources beyond their granted permissions [Anthropic 2026b] and end users granting many of a client's requested permissions, making item-by-item permission review less useful [Anthropic 2026a]. Prior to agents, clients would be limited to software applications built and tested by users who have read the service's documentation and API references. Now, clients include LLMs that read a tool's documentation when prompted to use the tool. These agents are unlikely to be aware of code that restricts access to a key and are likely to interpret undocumented behavior of tools broadly and inconsistently.
 
-Here, agent performance on this task is measured and found that agents were unsuccessful and that **increasing the amount of training data was not helpful** (Figure 2). Ten models were tested without a runtime or idempotency keys and each was found to cause harm in the event of hidden writes with timeouts and delayed visibility in at least 54% of test cases. Traces provide insight into this finding. A sample of traces (480) from six models were examined and found that the six models all rechecked state after the timeout and failed to observe a hidden write due to delayed visibility. All six models resubmitted requests as a result. The best-performing model rarely rechecked state a second time in 28% of test cases and generated final trace claiming there was only one charge. Agents are not failing to reason about the situation; they are reasoning correctly about incorrect observations.
+Here, agent performance on this task is measured and found that agents were unsuccessful (Figure 2). Ten models were tested without a runtime or idempotency keys and each was found to cause harm in the event of hidden writes with timeouts and delayed visibility in at least 54% of test cases. Traces provide insight into this finding. A sample of traces (480) from six models were examined and found that the six models all rechecked state after the timeout and failed to observe a hidden write due to delayed visibility. All six models resubmitted requests as a result. The best-performing model rarely rechecked state a second time in 28% of test cases and generated final trace claiming there was only one charge. Agents are not failing to reason about the situation; they are reasoning correctly about incorrect observations.
 
 This all brings us to the thesis that is central to this work: failures in tool use should be managed outside the model, in the agent's tool environment. Other tool environment features can assist the agent in managing failures by making information available to the agent that it otherwise would not have, so long as tool developers provide information about what their tools guarantee under failure. 
 
@@ -34,7 +34,7 @@ Key results of this paper include the following:
 
 **An agent execution contract** providing additional details about restrictions on tool access and use, recovery and compensation options, and other features available to tool users. Neither JSON Schema nor MCP’s tool annotations can express key scope, partial effects, visibility lag or recovery operations, so today’s interfaces leave agents to guess them from prose. The agent execution contract assists runtimes in identifying retriable actions and is used to generate documentation on retriable and nonretriable actions and compensation strategies for nonretriable actions (§3).
 
-**A control plane** for implementing and assigning contract responsibilities (§4): A deterministic control interface; a contract service; and a system for assigning other contract responsibilities to an individual. In the fast path, an API query to a contract service allows users to learn details about a partially ordered transaction without further queries.
+**A control plane** for implementing and assigning contract responsibilities (§4): A deterministic control interface; a contract service; and a system for assigning other contract responsibilities to an individual. In the fast path, an API query to a contract service allows users to learn details about a partially committed transaction without further queries.
 
 The design of this system is evaluated in eleven registered studies (50,162 LLM experiments, 10 models (11 with a mid-study replacement) in four families plus a frontier tier), five development domains (travel, procurement, operations, scheduling, and SDLC), an out-of-sample accounts-payable workflow created after the project's design was finalized, and a replication study using Postgres and streaming replicas. All confirmatory hypotheses and analytic plans were preregistered. 
 
@@ -50,7 +50,7 @@ Important results include:
 
 **Agents outperform at correcting semantic errors.** Agents correct 98-100% of semantic errors, while generic and static approaches correct 79% and 7%, respectively. Agents are comparable in performance to custom hand-coded rules without requiring them to be written first (§7.2).
 
-**Using a runtime is cheap insurance.** The runtime incurs a low cost of one extra round-trip per write in failure-free scenarios. In other failure scenarios, the runtime lowers costs to the agent by reducing the number of recovery attempts needed. A contract can offer a shortcut that enables the agent to check partial writes more quickly, in 0.2 seconds, instead of the 10 seconds it takes to poll in this simulation (see §4.3, §7.6).
+**Using a runtime is cheap insurance.** The runtime incurs a low cost of one extra round-trip per write in failure-free scenarios. In other failure scenarios, the runtime lowers costs to the agent by reducing the number of recovery attempts needed. A contract can offer a shortcut that enables the runtime to check partial writes more quickly, in 0.2 seconds, instead of the 10 seconds it takes to poll on the Postgres implementation of the real ledger with the scripted agent (see §4.3, §7.6).
 
 The rest of this paper is organized as follows. In §2, we classify failures and assign responsibility for resolving each one. In §3, we present the execution contract. In §4, we present the control plane designed to enforce the execution contract. In §5 and §6, we present implementation and evaluation techniques. In §7, we present an evaluation of our design. In §8, we compare our work with related work. In §9, we note design limitations. Supplement S1 provides information on all implementation and operational defects in the system.
 
@@ -213,28 +213,45 @@ The runtime's job is to turn every request into a definite outcome without help 
 **The timeout path.** A timeout on a write is the case that harms agents the most frequently because it can hide the actual outcome of a write. For ease of review, here is the function used in the experiments on this critical path:
 
 ```
+# [2026-11]: added by the post-study correction
+# (Supplement S1, issues 25-26)
 on timeout(tool, args, key):
-    if fast path enabled and contract.inspect:                 # §4.3
-        s = inspect(key)                                       # waits for any in-progress attempt
-        if s == absent:  retry(key)
-        if s == partial and contract.retry_may_duplicate_partial:
-            compensate(key); retry(key)
-        # complete or unknown: fall through
-    for i in 1..4:                                             # reconcile against visible state
-        if reconcile(key) finds it: verify postcondition, waiting for visibility; return VERIFIED
-        wait 2.5 s
-    if key or tool is idempotent:
-        if contract.retry_may_duplicate_partial: compensate(key)   # key scope "completed"
-        retry(key)
-    else:
-        return EXECUTION_UNKNOWN                               # routed (§4.6)
+  if fast path on and contract.inspect:      # §4.3
+    s = inspect(key)    # waits for any attempt
+    if s == absent: retry(key)
+    if s == partial
+       and contract.retry_may_duplicate_partial
+       and tool can compensate:
+      compensate(key); retry(key)
+    # complete or unknown: fall through
+  for i in 1..4:    # reconcile with visible state
+    if reconcile(key) finds it:
+      return verify(result)
+    wait 2.5 s
+  if key or tool is idempotent:
+    # key scope "completed":
+    if contract.retry_may_duplicate_partial:
+      if tool can't compensate:
+        return EXECUTION_UNKNOWN       # [2026-11]
+      compensate(key)
+    retry(key)
+  else:
+    return EXECUTION_UNKNOWN      # routed (§4.6)
+```
+
+```
+verify(result):        # after every write success
+  for i in 1..4:       # wait until it is visible
+    if postcondition holds: return VERIFIED
+    wait 2.5 s
+  return UNVERIFIED    # [2026-11] routed (§4.6)
 ```
 
 `retry_may_duplicate_partial` holds when the key scope is `completed`, the tool can commit partly, and the request isn't naturally idempotent. That is exactly the case in which a keyed retry repeats a hidden partial commit, so the runtime attempts a first fix. Under an `atomic` scope the replay returns the original outcome, and compensation isn't needed. Because `compensate` must leave a completed attempt alone (§3.1), calling it when the outcome is unknown is safe.
 
-**Verification.** After a call succeeds the runtime checks the tool's postcondition and polls until the write is confirmed. An agent that reads after a verified success sees its own write. 
+**Verification.** After a call succeeds the runtime checks the tool's postcondition and polls for a fixed time window. An agent that reads after a verified success sees its own write. 
 
-**Failure classification.** Failures that the runtime can't resolve are categorized. An *execution* failure is one with an unknown cause to the runtime and can be labelled either `EXECUTION_UNKNOWN` or `PARTIALLY_EXECUTED`. A *semantic* failure is one in which the service understood the result and refused the outcome of it (e.g. available flights are outside of the maximum expense threshold) or the tool is persistently unavailable. 
+**Failure classification.** Failures that the runtime can't resolve are categorized. An *execution* failure is one with an unknown cause to the runtime and can be labelled either `UNVERIFIED`, `EXECUTION_UNKNOWN` or `PARTIALLY_EXECUTED`. A *semantic* failure is one in which the service understood the result and refused the outcome of it (e.g. available flights are outside of the maximum expense threshold) or the tool is persistently unavailable. 
 
 ### 4.3 Partial-Effects "Fast Path"
 
@@ -442,7 +459,7 @@ The runtime is *necessary* only when the outcome is unobservable. On single, obs
 
 ### 7.2 Q2: Are agents needed for semantic faults?
 
-Yes, semantic errors like these cannot be avoided by rule-based methods (Fig. 6a). Semantic errors, such as new task requirements and unavailability of tools and outputs that meet task requirements but are not appropriate, require decisions about how to proceed. In our experiments, these decisions were made by agents. We also compared agent performance with fixed recovery strategies. When compared with a fixed process, LLM agents had success rates of 97% to 100% on semantic errors, compared with 7%, and the workflow caused harmful outcomes in 21% of semantic errors (A1, A2). Results were similar across all tested LLMs. For comparison, in Stage E, we evaluated two other methods. A general set of recovery rules, such as suggestions to reread and try again with the same key or alternative tools, had a 79% success rate on semantic errors. Agent performance was higher, at 98% (E3a). Custom recovery rules designed for specific tasks, including built-in validators and replanning tools and goals, had a 100% success rate on semantic errors. Agent performance was within 2 percentage points, or noninferior, without custom recovery rules (N1).
+Semantic errors cannot be handled by rule-based methods unless they were already anticipated (Fig. 6a). Semantic errors, such as new task requirements and unavailability of tools and outputs that meet task requirements but are not appropriate, require decisions about how to proceed. In our experiments, these decisions were made by agents. We also compared agent performance with fixed recovery strategies. When compared with a fixed process, LLM agents had success rates of 97% to 100% on semantic errors, compared with 7%, and the workflow caused harmful outcomes in 21% of semantic errors (A1, A2). Results were similar across all tested LLMs. For comparison, in Stage E, we evaluated two other methods. A general set of recovery rules, such as suggestions to reread and try again with the same key or alternative tools, had a 79% success rate on semantic errors. Agent performance was higher, at 98% (E3a). Custom recovery rules designed for specific tasks, including built-in validators and replanning tools and goals, had a 100% success rate on semantic errors. Agent performance was within 2 percentage points, or noninferior, without custom recovery rules (N1).
 
 The gap is in task-invalid results, which a rule recognizes only if someone anticipated them. On the held-out family, spec-based rules had no task-invalid outputs, and agents caught all of them (100% vs 67% overall; E3b). Differences between rule and agent outputs include differences in people's expectations about the tools and prerequisites needed to carry out tasks. Semantic errors affect all models and show that agents outperform rules, but do not enable direct comparisons of models.
 
@@ -490,7 +507,7 @@ Under normal conditions, the runtime adds a single read to each write to check a
 
 Under fault conditions, the runtime added 6-12 extra requests and 7.5-10 extra seconds of polling time, again depending on the lag of the replica database relative to the primary database. Polling time is more costly than extra requests at all measured latencies. Agent benefits are the opposite. For LLM agents interacting with Postgres, the runtime decreased the number of model calls per episode from 7.5 to 3.6 with a hidden write and from 5.9 to 3.6 with a partial commit, and the total number of tokens used by 51% and 28%, as the agent no longer needs to use turns to troubleshoot irrecoverable errors. These are real cost savings, especially at scale.
 
-In simulations, the partial-effects fast path reduced calls to each model by 20%. Total run time with the partial-effects fast path did not differ much from the hidden write fast path but increased total run time with the partial commit fast path by about 6 seconds because the agent polled for a record that is not created with the partial commit fast path. The partial-effects fast path avoids this polling. Recovery from a partial commit with a different type of scripted agent took 3.2 seconds instead of 13.3 seconds (including 3 seconds of client timeout) with no hard failures (Table 2). We have not tried recovery from partial commit with LLM agents.
+The total run time without the fast path was about 6 seconds longer than when agents are left to their own recovery because the runtime polled for a write that a partial commit never creates. The fast path avoids this polling. Recovery from a partial commit with a different type of scripted agent took 3.2 seconds instead of 13.3 seconds (including 3 seconds of client timeout) with no hard failures (Table 2). We have not tried recovery from partial commit with the fast path on LLM agents.
 
 ### 7.7 Real Services vs the Simulator
 
@@ -545,6 +562,12 @@ Figure 7 shows additional findings. We use data from model retries in Postgres t
 **Unrecognized ambiguity.** P6's main weakness is unobserved task uncertainty. P6 achieves 67% of genuine human needs and 93% of possible rewards because it cannot request information about the unknown unknowns of the agent. Handling unobserved uncertainty is an open research question, that is, a topic of future research.
 
 **Statistics.** Corrections for multiple hypothesis tests within each study were applied to tests in each study, but not across the eleven studies. Tests of model and family differences and timing and confidence-level assumptions were exploratory and noted as such.
+
+Additional Limitations Added After Corrections done 2026-11-17:
+
+**Verification window is bounded.** The runtime checks for writes to become visible a max of 4 times (2.5 seconds apart for a total max delay of 10 seconds). If a write were to take longer than 7.5 seconds, the runtime might not detect it. Before the correction, the runtime would report success even though the write was not actually confirmed. This was corrected in the code so that it now reports `UNVERIFIED` and, in the case of P6, escalates to a human. This case did occur once in the registered studies (DeepSeek-V4.1-Flash seed 624) but did not change the findings for the amount of harm reported in the paper. See Supplement Table S1, issues 25–26, for the details.
+
+**Safe retry depends on the tool.** The runtime does not add new capabilities to a tool. If a tool that allows partial commits does not also allow for at least one of the following functionalities in the case of a timeout, the runtime will escalate instead of retry: (1) offer idempotency key coverage for partial commits, or (2) provide a way to undo partial commits. This support gives direct insight into the amount of autonomy a certain tool can provide to the system.
 
 ## 10. Conclusion
 

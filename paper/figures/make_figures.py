@@ -383,6 +383,10 @@ ISSUES = [  # (number, date, category)
     (16, "2026-10-27", "scenario"), (17, "2026-10-27", "harness"), (18, "2026-10-28", "measurement"),
     (19, "2026-10-28", "harness"), (20, "2026-10-28", "scenario"), (21, "2026-10-28", "harness"),
     (22, "2026-10-28", "scenario"), (23, "2026-10-29", "measurement"), (24, "2026-10-29", "scenario")]
+# Found by external review after all studies (docs/corrections/2026-11-runtime-verification.md). Drawn
+# past a break in the time axis, since nothing happened between Oct 29 and Nov 16.
+AFTER_STUDIES = [(25, "2026-11-16", "harness"), (26, "2026-11-16", "harness")]
+X_AFTER = 21.4  # x position of the after-study column (the axis is broken before it)
 ISSUE_STYLE = {"harness": (ORANGE, "o", "harness defect"), "scenario": (BLUE, "s", "scenario or design validity"),
                "measurement": (GREEN, "^", "measurement or analysis"),
                "operational": (YELLOW, "D", "provider or operational")}
@@ -399,9 +403,9 @@ def figA1_timeline(out):
         ax.scatter([x], [3.05], s=22, color=INK, zorder=3)
         ax.text(x, 3.25, name, rotation=35, fontsize=6.6, color=INK, ha="left", va="bottom")
     per_day = defaultdict(int)
-    for n, d, cat in ISSUES:
+    for n, d, cat in ISSUES + AFTER_STUDIES:
         c, m, _ = ISSUE_STYLE[cat]
-        x, k = day(d), per_day[d]
+        x, k = (X_AFTER if (n, d, cat) in AFTER_STUDIES else day(d)), per_day[d]
         per_day[d] += 1
         y = 2.1 - 0.36 * k
         ax.scatter([x], [y], s=70, marker=m, color=c, edgecolor=SURFACE, lw=0.8, zorder=3)
@@ -409,10 +413,15 @@ def figA1_timeline(out):
     ax.axvspan(day("2026-10-19") - 0.5, day("2026-10-25") + 0.5, color=GRID, alpha=0.5, lw=0, zorder=0)
     ax.text((day("2026-10-19") + day("2026-10-25")) / 2, 1.5, "no commits or runs", fontsize=6.4, color=MUTED,
             ha="center")
-    ticks = range(0, 19, 2)
-    ax.set_xticks(list(ticks))
-    ax.set_xticklabels([f"Oct {11 + t}" for t in ticks], fontsize=7)
-    ax.set_xlim(-0.8, 19.2)
+    # After-study column, past a break in the time axis.
+    ax.axvspan(X_AFTER - 1.0, X_AFTER + 1.2, color=GRID, alpha=0.5, lw=0, zorder=0)
+    ax.text(X_AFTER + 0.1, 1.05, "after the studies:\nexternal review", fontsize=6.4, color=MUTED, ha="center")
+    for dx in (-0.12, 0.12):  # break marks on the time axis
+        ax.plot([19.95 + dx - 0.12, 19.95 + dx + 0.12], [0.33, 0.57], color=INK2, lw=0.9, clip_on=False, zorder=4)
+    ticks = list(range(0, 19, 2))
+    ax.set_xticks(ticks + [X_AFTER])
+    ax.set_xticklabels([f"Oct {11 + t}" for t in ticks] + ["Nov 16"], fontsize=7)
+    ax.set_xlim(-0.8, X_AFTER + 1.3)
     ax.set_ylim(0.45, 4.6)
     ax.set_yticks([])
     ax.spines["left"].set_visible(False)
