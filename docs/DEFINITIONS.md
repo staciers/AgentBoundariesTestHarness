@@ -278,6 +278,9 @@ Assigned by the runtime to every tool call.
 <a id="state-VERIFIED"></a>
 **`state-VERIFIED`**: The call succeeded and its postcondition was observed.
 
+<a id="state-UNVERIFIED"></a>
+**`state-UNVERIFIED`**: The service reported success, but the postcondition wasn't observed within the verification window. Unresolved: the agent gets an error telling it not to repeat the call, and P6 routes consequential cases to a human.
+
 <a id="state-EXECUTION_UNKNOWN"></a>
 **`state-EXECUTION_UNKNOWN`**: Nobody can tell whether the call took effect.
 

@@ -200,12 +200,16 @@ class ReliabilityRuntime:
                 if found is not None:
                     return self._success(tool, args, found, out)
                 if key or sem.idempotent:
-                    if (c.retry_may_duplicate_partial and self.cfg.compensate_partial
-                            and tool.compensate and sem.compensable):
+                    if c.retry_may_duplicate_partial:
                         # A timeout can hide a partial commit that the key store never
                         # recorded (key scope "completed"); undo any incomplete attempt
                         # before replaying. Under an atomic key scope the replay returns the
                         # original outcome instead, so this isn't needed.
+                        if not self._can_compensate(tool):
+                            # No safe recovery: a keyed retry could repeat the committed part.
+                            # Stop and report the outcome as unknown (P6 escalates it).
+                            out.runtime_actions.append("unsafe_retry_refused")
+                            return self._fail(out, ExecutionState.EXECUTION_UNKNOWN, e, FailureClass.EXECUTION)
                         tool.compensate(self.world, args, key or call_id)
                         out.runtime_actions.append("compensate_unknown_partial")
                     out.runtime_actions.append("safe_retry_with_key" if key else "retry_idempotent")
@@ -246,6 +250,9 @@ class ReliabilityRuntime:
         state = (ExecutionState.EXECUTION_UNKNOWN if not sem.read_only else ExecutionState.NOT_EXECUTED)
         return self._fail(out, state, last_err or ToolError("retries exhausted"), FailureClass.EXECUTION)
 
+    def _can_compensate(self, tool: ToolSpec) -> bool:
+        return bool(self.cfg.compensate_partial and tool.compensate and tool.semantics.compensable)
+
     def _inspect_fast(self, tool: ToolSpec, args: dict, key: str, c, out: Outcome) -> bool:
         """Resolve a timeout from current state, without polling. True = retry now with the key.
 
@@ -259,8 +266,7 @@ class ReliabilityRuntime:
         if status == "absent":
             out.runtime_actions.append("safe_retry_with_key")
             return True
-        if (status == "partial" and c.retry_may_duplicate_partial and self.cfg.compensate_partial
-                and tool.compensate and tool.semantics.compensable):
+        if status == "partial" and c.retry_may_duplicate_partial and self._can_compensate(tool):
             tool.compensate(self.world, args, key)
             out.runtime_actions += ["compensate_partial_fast", "safe_retry_with_key"]
             return True
@@ -288,9 +294,21 @@ class ReliabilityRuntime:
                 if tool.postcondition(self.world, args, out.response):
                     out.state = ExecutionState.VERIFIED
                     out.runtime_actions.append("postcondition_verified")
-                    break
+                    return out
                 out.runtime_actions.append("await_visibility")
                 self.world.clock.wait(self.cfg.reconcile_wait_ms)
+            # The window ran out without observing the effect. The service said it succeeded, so
+            # don't retry; but don't present it as a success either: reads may not show it yet.
+            # Checks run at 0, wait, 2*wait, ... so the last is (polls-1)*wait after the first; the
+            # runtime returns one wait later (about 7.5 s and 10 s with the defaults).
+            last_check_s = (self.cfg.reconcile_polls - 1) * self.cfg.reconcile_wait_ms / 1000
+            out.runtime_actions.append("verification_window_exhausted")
+            out.state = ExecutionState.UNVERIFIED
+            out.failure_class = FailureClass.EXECUTION
+            out.error_kind = "unverified"
+            out.error_message = (f"The service reported success, but the effect wasn't observed within the "
+                                 f"verification window ({self.cfg.reconcile_polls} checks, the last {last_check_s:g} s "
+                                 f"after the first).")
         return out
 
     @staticmethod
@@ -341,6 +359,9 @@ def _guidance(out: Outcome) -> str:
     if out.state == ExecutionState.EXECUTION_UNKNOWN:
         return ("The runtime could not determine whether this action executed. Do not repeat "
                 "it blindly; verify state or escalate.")
+    if out.state == ExecutionState.UNVERIFIED:
+        return ("The service reported that this action succeeded, but its effect couldn't be confirmed "
+                "in time; reads may not show it yet. Do NOT repeat it; check again later or escalate.")
     if out.state == ExecutionState.PARTIALLY_EXECUTED:
         return "Part of this operation committed and could not be compensated automatically."
     return ""

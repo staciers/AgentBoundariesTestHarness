@@ -38,6 +38,9 @@ class ExecutionState(str, Enum):
     EXECUTION_UNKNOWN = "EXECUTION_UNKNOWN"
     PARTIALLY_EXECUTED = "PARTIALLY_EXECUTED"
     VERIFIED = "VERIFIED"
+    # The service reported success, but the postcondition wasn't observed within the
+    # verification window: not resolved, so it is never presented to the agent as a success.
+    UNVERIFIED = "UNVERIFIED"
     SEMANTIC_FAILURE = "SEMANTIC_FAILURE"
 
 

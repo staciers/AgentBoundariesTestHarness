@@ -243,6 +243,10 @@ TERMS: List[Term] = [
     _T("state-NOT_EXECUTED", "states", "The call definitely had no effect."),
     _T("state-EXECUTED", "states", "The call succeeded; postcondition not verified."),
     _T("state-VERIFIED", "states", "The call succeeded and its postcondition was observed."),
+    _T("state-UNVERIFIED", "states", "The service reported success, but the postcondition wasn't observed "
+                                    "within the verification window. Unresolved: the agent gets an error "
+                                    "telling it not to repeat the call, and P6 routes consequential cases "
+                                    "to a human."),
     _T("state-EXECUTION_UNKNOWN", "states", "Nobody can tell whether the call took effect."),
     _T("state-PARTIALLY_EXECUTED", "states", "Part of a multi-part operation committed and wasn't compensated."),
     _T("state-SEMANTIC_FAILURE", "states", "The service understood and rejected the request; retrying won't help."),

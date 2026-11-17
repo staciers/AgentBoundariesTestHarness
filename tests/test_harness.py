@@ -108,12 +108,15 @@ class TestFaultsAndRuntime(unittest.TestCase):
         self.assertEqual(len(w.scan("incidents", visible=False)), 1)
 
     def test_delayed_visibility_verified_without_duplicate(self):
-        # Writes stay invisible past the verification window: no retry, no duplicate.
+        # Writes stay invisible past the verification window: no retry, no duplicate. Before the
+        # 2026-11 correction this returned a resolved success; now it is UNVERIFIED (unresolved).
         sc, w, rt, _ = runtime_for("travel/base", "semantic", [
             {"type": "delayed_visibility", "params": {"delay_ms": 60000}},
         ])
         out = rt.execute(self.tool(sc, "book_trip"), TRIP, "c1")
-        self.assertTrue(out.resolved)
+        self.assertEqual(out.state, ExecutionState.UNVERIFIED)
+        self.assertFalse(out.resolved)
+        self.assertEqual(out.attempts, 1)
         self.assertEqual(w.duplicate_effects(), 0)
 
     def test_partial_mutation_compensated(self):
@@ -246,7 +249,9 @@ class TestCompoundFaults(unittest.TestCase):
         sc, w, rt, _ = runtime_for("travel/base", "semantic", [
             "timeout_after_execution", {"type": "delayed_visibility", "params": {"delay_ms": 600000}}])
         out = rt.execute(self.tool(sc, "book_trip"), TRIP, "c1")
-        self.assertTrue(out.resolved)
+        # The write stays hidden past the verification window, so it isn't reported as a success
+        # (it was, before the 2026-11 correction), but it is not cancelled or repeated either.
+        self.assertEqual(out.state, ExecutionState.UNVERIFIED)
         self.assertEqual(w.compensated_effects(), 0)
         self.assertEqual(w.duplicate_effects(), 0)
 
@@ -1479,3 +1484,87 @@ class TestRealServices(unittest.TestCase):
         self.assertIn("compensate_partial_fast", acts)
         self.assertNotIn("reconcile_lookup", acts)
         self.assertLess(r["sim_duration_ms"], 6000)
+
+
+class TestRuntimeCorrections2026_11(unittest.TestCase):
+    """Regression tests for the two gaps found by external review in November 2026
+    (docs/corrections/): failed verification returned success, and a keyed retry could repeat a
+    partial commit when the contract offered no compensation."""
+
+    def tool(self, sc, name, **changes):
+        from dataclasses import replace
+        t = next(t for t in sc.tools if t.name == name)
+        return replace(t, **changes) if changes else t
+
+    # ---- gap 1: exhausted postcondition checks
+    def test_exhausted_postcondition_checks_are_unresolved(self):
+        from abh.runtime import agent_view
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", [])
+        out = rt.execute(self.tool(sc, "book_trip", postcondition=lambda world, args, resp: False), TRIP, "c1")
+        self.assertEqual(out.state, ExecutionState.UNVERIFIED)
+        self.assertFalse(out.resolved)
+        self.assertIn("verification_window_exhausted", out.runtime_actions)
+        self.assertEqual(out.runtime_actions.count("await_visibility"), rt.cfg.reconcile_polls)
+        self.assertEqual(out.attempts, 1)                    # the service said it succeeded: no retry
+        view = agent_view(out, RuntimeMode.SEMANTIC)
+        self.assertTrue(view["is_error"])
+        self.assertEqual(view["content"]["execution_state"], "UNVERIFIED")
+        self.assertIn("Do NOT repeat", view["content"]["guidance"])
+
+    def test_p6_routes_unverified_consequential_write_to_human(self):
+        from abh.policies import make_policy
+        from abh.semantics import Controller
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", [])
+        tool = self.tool(sc, "book_trip", postcondition=lambda world, args, resp: False)
+        out = rt.execute(tool, TRIP, "c1")
+        self.assertEqual(make_policy("P6").route(out, tool), Controller.HUMAN)
+
+    def test_postcondition_that_holds_on_a_later_check_is_verified(self):
+        checks = []
+
+        def eventually(world, args, resp):
+            checks.append(1)
+            return len(checks) >= 3
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", [])
+        out = rt.execute(self.tool(sc, "book_trip", postcondition=eventually), TRIP, "c1")
+        self.assertEqual(out.state, ExecutionState.VERIFIED)
+        self.assertTrue(out.resolved)
+        self.assertEqual(out.runtime_actions.count("await_visibility"), 2)
+
+    # ---- gap 2: unsafe keyed retry
+    def test_unsafe_keyed_retry_is_refused_without_compensation(self):
+        from abh.contract import contract_of
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", ["partial_mutation", "timeout_after_execution"])
+        tool = self.tool(sc, "book_trip", compensate=None)   # completed key scope, persistent partials
+        self.assertTrue(contract_of(tool).unsafe_retry)
+        out = rt.execute(tool, TRIP, "c1")
+        self.assertEqual(out.state, ExecutionState.EXECUTION_UNKNOWN)
+        self.assertFalse(out.resolved)
+        self.assertIn("unsafe_retry_refused", out.runtime_actions)
+        self.assertNotIn("safe_retry_with_key", out.runtime_actions)
+        self.assertEqual(out.attempts, 1)
+        self.assertEqual(w.duplicate_effects(), 0)           # the committed part is not repeated
+
+    def test_same_fault_with_compensation_still_retries_cleanly(self):
+        from abh.contract import contract_of
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", ["partial_mutation", "timeout_after_execution"])
+        tool = self.tool(sc, "book_trip")
+        self.assertFalse(contract_of(tool).unsafe_retry)
+        out = rt.execute(tool, TRIP, "c1")
+        self.assertTrue(out.resolved)
+        self.assertIn("compensate_unknown_partial", out.runtime_actions)
+        self.assertEqual(w.duplicate_effects(), 0)
+
+    def test_p6_escalates_refused_retry(self):
+        from abh.policies import make_policy
+        from abh.semantics import Controller
+        sc, w, rt, _ = runtime_for("travel/base", "semantic", ["partial_mutation", "timeout_after_execution"])
+        tool = self.tool(sc, "book_trip", compensate=None)
+        out = rt.execute(tool, TRIP, "c1")
+        self.assertEqual(make_policy("P6").route(out, tool), Controller.HUMAN)
+
+    def test_no_shipped_tool_has_the_unsafe_combination(self):
+        from abh.contract import contract_of
+        for sid in list_scenarios():
+            for t in make_scenario(sid).tools:
+                self.assertFalse(contract_of(t).unsafe_retry, f"{sid}: {t.name}")

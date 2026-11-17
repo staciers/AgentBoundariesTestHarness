@@ -111,7 +111,8 @@ def _consequential_unresolved(out: Outcome, tool: ToolSpec) -> bool:
     sem = tool.semantics
     if out.failure_class != FailureClass.EXECUTION:
         return False
-    if out.state not in (ExecutionState.EXECUTION_UNKNOWN, ExecutionState.PARTIALLY_EXECUTED):
+    if out.state not in (ExecutionState.EXECUTION_UNKNOWN, ExecutionState.PARTIALLY_EXECUTED,
+                         ExecutionState.UNVERIFIED):
         return False
     return sem.consequence >= Consequence.HIGH or (not sem.reversible and sem.side_effect == SideEffect.EXTERNAL)
 

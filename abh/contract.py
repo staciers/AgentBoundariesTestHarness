@@ -43,6 +43,7 @@ study varies key scope.
 """
 from __future__ import annotations
 
+import sys
 from dataclasses import asdict, dataclass, replace
 from enum import Enum
 from typing import Any, Dict, Optional
@@ -97,6 +98,12 @@ class ExecutionContract:
         """A keyed retry after a hidden partial commit can repeat the committed part."""
         return (self.key_scope is KeyScope.COMPLETED and self.partial_effects is PartialEffects.PERSIST
                 and not self.idempotent)
+
+    @property
+    def unsafe_retry(self) -> bool:
+        """A keyed retry could repeat a partial commit and nothing can undo it first. The
+        runtime refuses that retry and reports the outcome as unknown instead."""
+        return self.retry_may_duplicate_partial and not self.compensation
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -161,7 +168,15 @@ class Contracts:
         c = self._cache.get(tool.name)
         if c is None:
             c = self._cache[tool.name] = contract_of(tool, self.overrides)
+            if c.unsafe_retry and tool.name not in _WARNED:
+                _WARNED.add(tool.name)
+                print(f"warning: {tool.name}: a keyed retry could repeat a partial commit and there is no "
+                      "compensation hook; after a timeout the runtime will escalate instead of retrying",
+                      file=sys.stderr)
         return c
+
+
+_WARNED: set = set()
 
 
 def describe_key(c: ExecutionContract) -> Optional[str]:
